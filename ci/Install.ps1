@@ -43,7 +43,7 @@ ForEach ($module in $moduleData) {
     Write-Host "Removing module...: $($module.ModuleRoot)"
     Get-Item -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Copying module....: $($module.ModuleRoot) => $($modulesPath)"
-    Copy-Item -Path (Join-Path -Path $ProjectRoot -ChildPath $module.ModuleRoot) -Destination $modulesPath -Recurse -Force -PassThru
+    Copy-Item -Path (Join-Path -Path $ProjectRoot -ChildPath $module.ModuleRoot) -Destination (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -Recurse -Force -PassThru
     if (Test-Path -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot)) {
         Write-Host "Module copied.....: $($module.ModuleRoot)"
     } else {
@@ -55,6 +55,7 @@ ForEach ($module in $moduleData) {
         Write-Host "Module loaded.....: $($module.ModuleName)"
     } else {
         Write-Host "Module NOT loaded.: $($module.ModuleName)"
+        exit 1
     }
 }
 
@@ -90,8 +91,8 @@ ForEach ($Module in $Modules) {
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCA7o/HRbNOfUZ+5
-# Q+QjfdJMQhc6YoOfGYlHzkGe5UGb7KCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCB6X26sDTgC55MF
+# aCRqcV27vO7Rove00jLA1PymnOKcoKCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -185,11 +186,11 @@ ForEach ($Module in $Modules) {
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgblsYawmRfab2+Hdwtw+XMWCOI9mY+Jqd+Vf4EiYbVeswDQYJKoZIhvcNAQEB
-# BQAEggEASb2UL18ux9wC3p9FmI90OO6peT0Y18Tpt/JmHTTkj3OSrbXiwcZhV25T
-# qDzhfFE9SKD7iVb9J8YqT9TQvknKg9bB6hZB5IZDE8D/Nr9bJD6fcDoLqu4Moh3E
-# 9XWB1erh/aPVgWiP0UQCBg9c1cjlSvYTEGX2Rvm5TO9cC/7L+NS5GIDVu73zyfAl
-# unzwj7ry8v9GMfgHeuLk7OB1ngpD/HNg2X0lncx9t6MXFmUSAsRKU+/lgVX5mcjv
-# 9SJz9qNSgZBjLGgHo0x/4nRxnMGciHgrNaN6QeYs2lKAl6LzMsEDjQMstKvU+KH1
-# R/ZXNYAGIKD+jHjyy8vu7yl49bXmng==
+# IgQg+ZEJIPd+50RMe9mD1Dph5DsfVNWbTO9K1gtXpO5XxuEwDQYJKoZIhvcNAQEB
+# BQAEggEAe/vui/9n663O1WPTazI+FCc33EOYmOBoYIoDV+JaJTJJA3uILEAKdKH2
+# ve/hWVdeDKkRjjDnsW2bnpdF9DoCa93Jq1a/ZvamdaBVF0FH41RK3p22JGiw6DOO
+# VYGD6Zc2n+uWfF1tZ/VnUn+y1J5+h20OnYAcDToLKYKFwMWt/27bcb373fTal33x
+# ZuktwpYnlso7YNjA9rmH4sht0qfTYSn2J2BZ/V8syc3r65SAzZ8q1O+cLdvpsC1c
+# ROyF1Ztr5NSemO0rR0xWzPhCo+1XBnwCcLEbx+qnotrHp5ZW8Feno7PhrGey/LGM
+# T73/qaWOB0iG6Qf9Q25owvgcpnESkw==
 # SIG # End signature block
