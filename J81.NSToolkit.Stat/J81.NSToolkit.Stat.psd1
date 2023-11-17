@@ -66,7 +66,7 @@ PowerShellVersion = '5.0'
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @(@{ModuleName="J81.NSToolkit"; ModuleVersion="2311.1622"; GUID="b834f328-47a6-4259-be72-317fd1f5ebaf"})
+# NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = 'Invoke-NSUpdateAaacertparams', 'Invoke-NSUnsetAaacertparams', 
@@ -2981,8 +2981,8 @@ PrivateData = @{
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDd+SQbug7Ruaxp
-# O3eogA1FNTQ10hJr5ITF6TqB7Qxwm6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBPMZROoCsAsE6Q
+# LO1GHusN/4YbodtvAcGl8xB4i6vvl6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -3076,11 +3076,11 @@ PrivateData = @{
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgfvqKx3sdz3y2YI3iI8nDvzH7ANiiXNu8pEnglIcswwkwDQYJKoZIhvcNAQEB
-# BQAEggEAF518c+vL5v7e6xeSweev7Vfv82tnNgcAt7D+B0UaaIOYEEK9mtMqGLZa
-# i7owJYZE0CMi064bpYtZmGXGHcbBnWQjTuIeqRPkFUyacrYW/AkGmYVynfivCrRH
-# IJCnJm/QE6WYcoU8cEHtsLigRNFZj44ykdRXlOPV2V408LgUNZp8zLdTI65bzB/9
-# pzLK/MBNS+7YkL306T3xvbnE9v3it6A7EY0JBvY+HJHVvS6tfCmpzGHrZOz4LxEe
-# Nd6H2yPVT1CL3WsAkYsdp91I9JUibl9HiNZuCjpYOloHx1ceLHH6oQgm77om3gNG
-# uR7XLr3AO3y79y8VufQ2Ri24CvuP6A==
+# IgQgjUWk9aZtTmW8ue4iLdwCpNWfU9mUx4+Ut7BUZNnmvykwDQYJKoZIhvcNAQEB
+# BQAEggEAerW+5SjwAg/R9YwV6lUNUNiBHqXW1MGcbk2sqcxvDvy0IuKPWxqUgk5O
+# TAqa9RD40862BP7AYSy7rhOhZpCjy7MZ4Gq80mqklwc0aktJ0h873i4KtNfCCOUG
+# k+WpflTH5LTvMe2+LX+GOlLYYzvu0VPGc6IO3d9L2mExNPj1iqRA3bgTFRplzXAL
+# MJ/a/oUQUrmDgXHHyzMbJL59ko8eJGpvT2CL8JhB/u+m4srNESizeBxQYF6x3lzj
+# xspC3eVIP7TEdhocMj5ue4znSJCccrzDoelQm9Ep5sxWqvQPnJqPOxyPnfp0zagP
+# OUUqEN2fdfnM5Ux33tyEkBCJ7OziVg==
 # SIG # End signature block
