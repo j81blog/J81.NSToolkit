@@ -2,6 +2,7 @@
 [![PowerShell Gallery][psgallery-badge]][psgallery]
 [![License][license-badge]][license]
 [![main build status][appveyor-badge]][appveyor-build]
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/da70cf487314470ba8b857661bc425f1)](https://app.codacy.com/gh/j81blog/J81.NSToolkit?utm_source=github.com&utm_medium=referral&utm_content=j81blog/J81.NSToolkit&utm_campaign=Badge_Grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/67003aa3935b4871994e42d8cb4c81e3)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=j81blog/J81.NSToolkit&amp;utm_campaign=Badge_Grade)
 
 # J81.NSToolkit
