@@ -43,8 +43,13 @@ ForEach ($module in $moduleData) {
     Write-Host "Removing module...: $($module.ModuleRoot)"
     Get-Item -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Copying module....: $($module.ModuleRoot) => $($modulesPath)"
-    Copy-Item -Path (Join-Path -Path $ProjectRoot -ChildPath $module.ModuleRoot) -Destination $modulesPath -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "Module present....: $(Test-Path -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -ErrorAction SilentlyContinue)"
+    Copy-Item -Path (Join-Path -Path $ProjectRoot -ChildPath $module.ModuleRoot) -Destination $modulesPath -Recurse -Force -PassThru
+    if (Test-Path -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot)) {
+        Write-Host "Module copied.....: $($module.ModuleRoot)"
+    } else {
+        Write-Host "Module NOT copied.: $($module.ModuleRoot)"
+        exit 1
+    }
     Import-Module -Name (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -Force -ErrorAction SilentlyContinue
     if (Get-Module -Name $module.ModuleName -ErrorAction SilentlyContinue) {
         Write-Host "Module loaded.....: $($module.ModuleName)"
