@@ -154,8 +154,6 @@ If ($env:APPVEYOR_REPO_BRANCH -ne 'main') {
         }
         #>
 
-            Write-Host "Exit due to testing"
-            exit
             # Publish the new version to the PowerShell Gallery
             Try {
                 # Build a splat containing the required details and make sure to Stop for errors which will trigger the catch
