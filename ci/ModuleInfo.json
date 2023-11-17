@@ -1,0 +1,23 @@
+{
+    "ProjectName": "J81.NSToolkit",
+    "ModuleData": [
+        {
+            "ModuleName": "J81.NSToolkit",
+            "ModuleRoot": "J81.NSToolkit",
+            "ModuleFilepath": "J81.NSToolkit\\J81.NSToolkit.psm1",
+            "ManifestFilepath": "J81.NSToolkit\\J81.NSToolkit.psd1"
+        },
+        {
+            "ModuleName": "J81.NSToolkit.Conf",
+            "ModuleRoot": "J81.NSToolkit.Conf",
+            "ModuleFilepath": "J81.NSToolkit.Conf\\J81.NSToolkit.Conf.psm1",
+            "ManifestFilepath": "J81.NSToolkit.Conf\\J81.NSToolkit.Conf.psd1"
+        },
+        {
+            "ModuleName": "J81.NSToolkit.Stat",
+            "ModuleRoot": "J81.NSToolkit.Stat",
+            "ModuleFilepath": "J81.NSToolkit.Stat\\J81.NSToolkit.Stat.psm1",
+            "ManifestFilepath": "J81.NSToolkit.Stat\\J81.NSToolkit.Stat.psd1"
+        }
+    ]
+}
