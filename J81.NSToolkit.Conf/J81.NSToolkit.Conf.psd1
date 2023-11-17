@@ -51,7 +51,7 @@ PowerShellVersion = '5.0'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @()
+# RequiredModules = @( @{ModuleName="J81.NSToolkit"; ModuleVersion="2311.1622"; GUID="b834f328-47a6-4259-be72-317fd1f5ebaf"} )
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -66,7 +66,7 @@ PowerShellVersion = '5.0'
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @(@{ModuleName="J81.NSToolkit"; ModuleVersion="2311.1622"; GUID="b834f328-47a6-4259-be72-317fd1f5ebaf"})
+# NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = 'Invoke-NSUpdateAaacertparams', 'Invoke-NSUnsetAaacertparams', 
@@ -2981,8 +2981,8 @@ PrivateData = @{
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCjvldBtYB2KyFh
-# LlGZsQDUKNmcrDfZE8jK6BfUSdJTiqCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBW1K3WPCbPELQC
+# aFtb1bcto/Eql1Gc8axrWyFOtUjuYaCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -3076,11 +3076,11 @@ PrivateData = @{
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgFgOQbQzF0x9QZwem+wRchR6S/ehWNzDJsGiWCrPgT8cwDQYJKoZIhvcNAQEB
-# BQAEggEAQWZvz1QplnrMg7xD904I4ZMPa4TbLyRU8T9PFYJp+9oKN2lLYr4c90GL
-# ReBf1Oa4gyjEwavC9qrvVk+5Tlr2DfD/dOG9POVwRD6iOa149/aYEBHVWolsDjfM
-# GI8LbJo3cIQdwYRgO4OqV/o0eal9CMtHlm1FMBNjjQ29R/nZZCNOsLGUJdThErGq
-# M5zmW9FpUHB8BnOESyDguWYZ5nC0RDOS+Y0pLg1K008BdEcpSQLy3qskCOBo9CWO
-# wSHc0Ta3jzBYY5CXvuGX8mtJi6DnAVUebe8UF5lhnRzgtaBgIVo1mS7/+n1P/2h5
-# HK517KhjTAZSXgnqyE5MlJaCjPmxmg==
+# IgQgHmNblAiAH85GufL2NqSljpZ3AY85ViUVFvcLY/TBye8wDQYJKoZIhvcNAQEB
+# BQAEggEAR/uyuU6xFYC1QYqBvIjSBe+tSSDk0aHwwUVYD8JDbpq65B9jdnDJI7U0
+# jSAfpRfYYbUDQxsd+j0CjPlYh7sscOW57xXbaPXmRE7RLN47YezdYxhil8qGFm22
+# Xw5a/EFCGj9Wa7qXOX5K64Ilbbz+9j4lYytncF9gNBwEKpq+vJCFytuXMk30Geye
+# sj7RNoJsrY0r83+OIYY3Cke+8Kn02grHN40x9A2ngkwo+IrPt6TRcp0BduKFtuCA
+# qHoQciT3y4ecu4VXXwJv/onZq19tc9tNeom47Gd41kJ01zmph15YiA7n02awKNsg
+# 9imoQ5/YAmLYTD3JQAoXBpB6yDcoaw==
 # SIG # End signature block

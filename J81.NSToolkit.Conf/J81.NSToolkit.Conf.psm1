@@ -1,8 +1,17 @@
 [CmdletBinding()]
 Param()
 
-if (-Not (Get-Module -Name J81.NSToolkit | Where-Object { $_.Version -ge [version]'2311.2200' })) {
-    Import-Module -Name J81.NSToolkit -MinimumVersion '2311.2200' -Force -ErrorAction Stop
+#Set the minimum version of the J81.NSToolkit module that is required.
+$minimumVersion = '2311.2200'
+
+#Check if the J81.NSToolkit module is installed.
+if ( -Not ( Get-Module -Name J81.NSToolkit -ListAvailable -MinimumVersion $minimumVersion ) ) {
+    Write-Error -Message '"J81.NSToolkit" module is not installed. Please install it from the PowerShell Gallery.' -ErrorAction Stop
+}
+
+#Import the J81.NSToolkit module.
+if ( -Not ( Get-Module -Name J81.NSToolkit | Where-Object { $_.Version -ge [version]$minimumVersion } ) ) {
+    Import-Module -Name J81.NSToolkit -MinimumVersion $minimumVersion -Force -ErrorAction Stop
 }
 
 # Get public and private function definition files.
@@ -37,8 +46,8 @@ Foreach ($import in @($Public + $Private)) {
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD/nPAgmXhSjBEz
-# iP8ifsDfqt094BFCBmv8w4uYxGSp6aCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC1OxOsyPdg6MgP
+# 0rbrGT0bWANFuY0rCMacATIHtO6a7qCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -132,11 +141,11 @@ Foreach ($import in @($Public + $Private)) {
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgfiZLdW18Me4roeZHRCV/0tyr8UEpXJpdqC1t12MuW6MwDQYJKoZIhvcNAQEB
-# BQAEggEAPGaU98zTI2msxvkFMOCXDGrCLc38axvOPWDbAeuYuVENYCHliHCRZEWD
-# bsfD04QLU0pgQcmvNNKq8baTTRWAa2GotWnDVSnTZYY/c2zaE1QBDnCdN3KRxZbd
-# LI0HBOvsSCEnFi20skkcEbfsrB1JKEOBHe+7kzIL0TWX5zFipV0n+rqi0p/WZ5IJ
-# b6JKSzydo9endQUMlsIwbRQQPlhYRM3WLw0j1SHcjZNVj8lw1VdNVDubFVGwf8w2
-# mAbWgz6hyPMc5eHSWl6cqQoWSQvpoAVn6J38mx/px8mn+9+tkNm3YLhHfVhDuIVz
-# MWoCQg85vKV/RdR7EnFV43ds5Uv3WQ==
+# IgQgUOxtjWBXScHInQue2nTwVaw1Z/xYz+zH+QNnb7uks34wDQYJKoZIhvcNAQEB
+# BQAEggEADZKHZ/xDYQBranXgx75uZHkKF35yFc9W67OjhydyRwxs8R+yd+1lVdnn
+# yGiHhp2sE5J8yEa4EXTCHMQTxZ2qlXtI7ASCbKtUMbkWeHOrmmVGCqa9tUiGadpW
+# ytTANCMEi7pDQa9e1NlZWQK3aKqulzqsjN+c6XxEYyKSnhJP9HcMyBTFMPO9vzKx
+# HLPYDIylETJ3CKWN6q/EdRgG4WiVHAHl/Mw/my7DR6Z1X6tVG3RyOxpz2MkDuF/C
+# 9n0XLQNtZ0nQlzPYVzLrhHdzSk7nRxY/qcmCA9va07/xIL3lwJUViYHIoPEF9R5h
+# sGlzL3PvPvkPncu9mPEIF9iPGsFy3A==
 # SIG # End signature block
