@@ -5,7 +5,7 @@ Param()
 $minimumVersion = '2311.2200'
 
 #Check if the J81.NSToolkit module is installed.
-if ( -Not ( Get-Module -Name J81.NSToolkit -ListAvailable -MinimumVersion $minimumVersion ) ) {
+if ( -Not ( Get-Module -Name J81.NSToolkit -ListAvailable | Where-Object Version -eq $minimumVersion ) ) {
     Write-Error -Message '"J81.NSToolkit" module is not installed. Please install it from the PowerShell Gallery.' -ErrorAction Stop
 }
 
@@ -46,8 +46,8 @@ Foreach ($import in @($Public + $Private)) {
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC1OxOsyPdg6MgP
-# 0rbrGT0bWANFuY0rCMacATIHtO6a7qCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC1P/UlOaHS/Qwx
+# QpibOrsuZC6fm9b9DPQoCEL1mpIZh6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -141,11 +141,11 @@ Foreach ($import in @($Public + $Private)) {
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgUOxtjWBXScHInQue2nTwVaw1Z/xYz+zH+QNnb7uks34wDQYJKoZIhvcNAQEB
-# BQAEggEADZKHZ/xDYQBranXgx75uZHkKF35yFc9W67OjhydyRwxs8R+yd+1lVdnn
-# yGiHhp2sE5J8yEa4EXTCHMQTxZ2qlXtI7ASCbKtUMbkWeHOrmmVGCqa9tUiGadpW
-# ytTANCMEi7pDQa9e1NlZWQK3aKqulzqsjN+c6XxEYyKSnhJP9HcMyBTFMPO9vzKx
-# HLPYDIylETJ3CKWN6q/EdRgG4WiVHAHl/Mw/my7DR6Z1X6tVG3RyOxpz2MkDuF/C
-# 9n0XLQNtZ0nQlzPYVzLrhHdzSk7nRxY/qcmCA9va07/xIL3lwJUViYHIoPEF9R5h
-# sGlzL3PvPvkPncu9mPEIF9iPGsFy3A==
+# IgQg2TrVPcwyUsUio9cxxfydg+lKj+ia+qYxcBQAU8jsLh0wDQYJKoZIhvcNAQEB
+# BQAEggEAJ4xj6gIsXDf2Xn56Psajsmiiq0NnAdBYxpPdns+liehOkQb6+j5GYxsx
+# qUvk7XOb1CBreRRCGzImb8P8hLg/2GkO2T3QkunGCzL3N13dLaknfZr7CaEUn51C
+# aQTDytEr7PnYKINpZkadEC81T2++nyEBmdt90CrTmkn+To+tgRZ+I2A2SpIiwA8c
+# 0660x0klxszVP5XCcziwdftqKPM3vuQMKDjV6RWiYPGqgnlXx8btoKV2EnYv0Jd1
+# 0ERlNiL6eWy7g149+XRP/ESTXHACag74GNRk5TU433zepU+gzckyI+zdKR4cQGe9
+# /aq00MnSbcrcC2lJiQVEj3FV/pikBQ==
 # SIG # End signature block
