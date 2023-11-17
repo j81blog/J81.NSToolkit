@@ -1,7 +1,7 @@
 <#
     .SYNOPSIS
-        AppVeyor install script.
-#>
+        AppVeyor pre-deploy script.
+#> 
 [OutputType()]
 param ()
 Write-Host ""
@@ -24,7 +24,6 @@ if (Test-Path -Path 'env:APPVEYOR_BUILD_FOLDER') {
 $projectRoot = ( Resolve-Path -Path ( Split-Path -Parent -Path $PSScriptRoot ) ).Path
 Write-Host "Environment.......: $environment"
 Write-Host "Project root......: $ProjectRoot"
-Write-Host "PSModulePath......: ${env:PSModulePath}"
 $moduleInfoJson = Join-Path -Path $PSScriptRoot -ChildPath "ModuleInfo.json"
 Write-Host "Module info file..: $moduleInfoJson"
 if (Test-Path -Path $moduleInfoJson) {
@@ -37,63 +36,152 @@ if (Test-Path -Path $moduleInfoJson) {
 $moduleProjectName = $ModuleInfo.ProjectName
 $moduleData = $ModuleInfo.ModuleData
 
-$modulesPath = $env:PSModulePath -split ';' | Select-Object -First 1
-Write-Host "Module user path..: $modulesPath"
-ForEach ($module in $moduleData) {
-    Write-Host "Removing module...: $($module.ModuleRoot)"
-    Get-Item -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "Copying module....: $($module.ModuleRoot) => $($modulesPath)"
-    Copy-Item -Path (Join-Path -Path $ProjectRoot -ChildPath $module.ModuleRoot) -Destination (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -Recurse -Force
-    if (Test-Path -Path (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot)) {
-        Write-Host "Module copied.....: $($module.ModuleRoot)"
-    } else {
-        Write-Host "Module NOT copied.: $($module.ModuleRoot)"
-        exit 1
+Write-Host "==============================="
+
+# Line break for readability in AppVeyor console
+Write-Host ""
+$WarningPreference = [System.Management.Automation.ActionPreference]::Continue
+
+# Make sure we're using the main branch and that it's not a pull request
+# Environmental Variables Guide: https://www.appveyor.com/docs/environment-variables/
+If ($env:APPVEYOR_REPO_BRANCH -ne 'main') {
+    Write-Warning -Message "Skipping version increment and push for branch $env:APPVEYOR_REPO_BRANCH"
+} ElseIf ($env:APPVEYOR_PULL_REQUEST_NUMBER -gt 0) {
+    Write-Warning -Message "Skipping version increment and push for pull request #$env:APPVEYOR_PULL_REQUEST_NUMBER"
+} Else {
+    If (Test-Path 'env:APPVEYOR_BUILD_FOLDER') {
+        # AppVeyor Testing
+        $projectRoot = Resolve-Path -Path $env:APPVEYOR_BUILD_FOLDER
+        $module = Split-Path -Path $projectRoot -Leaf
+    } Else {
+        # Local Testing 
+        $projectRoot = Resolve-Path -Path (((Get-Item (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition)).Parent).FullName)
+        $module = Split-Path -Path $projectRoot -Leaf
     }
-    Import-Module -Name (Join-Path -Path $modulesPath -ChildPath $module.ModuleRoot) -Force -ErrorAction SilentlyContinue
-    if (Get-Module -Name $module.ModuleName -ErrorAction SilentlyContinue) {
-        Write-Host "Module loaded.....: $($module.ModuleName)"
-    } else {
-        Write-Host "Module NOT loaded.: $($module.ModuleName)"
-        exit 1
+
+    $moduleParent = Join-Path -Path $projectRoot -ChildPath $source
+    $manifestPath = Join-Path -Path $moduleParent -ChildPath "$module.psd1"
+    #$modulePath = Join-Path -Path $moduleParent -ChildPath "$module.psm1"
+
+    Write-Host "==============================="
+    Write-Host "Environment.....:$environment"
+    Write-Host "Project root....:$ProjectRoot"
+    Write-Host "Modules found...:$($modules -join ",")"
+    Write-Host "Module data.....:$($moduleData | Format-List |Out-String)"
+    Write-Host "==============================="
+
+    # Tests success, push to GitHub
+    If ($res.FailedCount -eq 0) {
+        ForEach ($moduleItem in $moduleData) {
+            $module = $moduleItem.ModuleName
+            $manifestPath = Join-Path -Path $projectRoot -ChildPath $moduleItem.ManifestFilepath
+            $moduleParent = Join-Path -Path $projectRoot -ChildPath $moduleItem.ModuleRoot
+            $manifest = Test-ModuleManifest -Path $manifestPath
+            [System.Version]$version = $manifest.Version
+            <#
+        # We're going to add 1 to the revision value since a new commit has been merged to main
+        # This means that the major / minor / build values will be consistent across GitHub and the Gallery
+        Try {
+            # Start by importing the manifest to determine the version, then add 1 to the revision
+            $manifest = Test-ModuleManifest -Path $manifestPath
+            [System.Version]$version = $manifest.Version
+            Write-Output "Old Version: $version"
+            # [System.String]$newVersion = New-Object -TypeName System.Version -ArgumentList ($version.Major, $version.Minor, $env:APPVEYOR_BUILD_NUMBER)
+            [System.String]$newVersion = New-Object -TypeName System.Version -ArgumentList ((Get-Date -Format "yyMM"), $env:APPVEYOR_BUILD_NUMBER)
+            Write-Output "New Version: $newVersion"
+
+            # Update the manifest with the new version value and fix the weird string replace bug
+            $functionList = ((Get-ChildItem -Path (Join-Path -Path $moduleParent -ChildPath "Public")).BaseName)
+            Update-ModuleManifest -Path $manifestPath -ModuleVersion $newVersion -FunctionsToExport $functionList
+            (Get-Content -Path $manifestPath) -replace 'PSGet_$module', $module | Set-Content -Path $manifestPath
+            (Get-Content -Path $manifestPath) -replace 'NewManifest', $module | Set-Content -Path $manifestPath
+            (Get-Content -Path $manifestPath) -replace 'FunctionsToExport = ', 'FunctionsToExport = @(' | Set-Content -Path $manifestPath -Force
+            (Get-Content -Path $manifestPath) -replace "$($functionList[-1])'", "$($functionList[-1])')" | Set-Content -Path $manifestPath -Force
+
+            # Update major version format appveyor.yml as month changes
+            $yml = Join-Path -Path $env:APPVEYOR_BUILD_FOLDER -ChildPath "appveyor.yml"
+            $replaceString = "version: .*\.\{build\}"
+            $versionString = "version: $(Get-Date -Format "yyMM").{build}"
+            (Get-Content -Path $yml) -replace $replaceString, $versionString | Set-Content -Path $yml
+
+            # Update version number for latest release in CHANGELOG.md
+            $changeLog = Join-Path -Path $env:APPVEYOR_BUILD_FOLDER -ChildPath "CHANGELOG.md"
+            #$changeLog = [System.IO.Path]::Combine($env:APPVEYOR_BUILD_FOLDER, "docs", "changelog.md")
+            $replaceString = "^## VERSION$"
+            if (Test-Path -Path $changeLog) {
+                $content = Get-Content -Path $changeLog
+                If ($content -match $replaceString) {
+                    $content -replace $replaceString, "## $newVersion" | Set-Content -Path $changeLog
+                } Else {
+                    Write-Host "No match in $changeLog for '## VERSION'. Manual update of CHANGELOG required." -ForegroundColor Cyan
+                }
+            }
+
+        } Catch {
+            Throw $_
+        }
+
+        # Publish the new version back to main on GitHub
+        Try {
+            # Set up a path to the git.exe cmd, import posh-git to give us control over git
+            $env:Path += ";$env:ProgramFiles\Git\cmd"
+            Import-Module posh-git -ErrorAction "Stop"
+
+            # Dot source Invoke-Process.ps1. Prevent 'RemoteException' error when running specific git commands
+            . $projectRoot\ci\Invoke-Process.ps1
+
+            # Configure the git environment
+            git config --global credential.helper store
+            Add-Content -Path (Join-Path -Path $env:USERPROFILE -ChildPath ".git-credentials") -Value "https://$($env:GitHubKey):x-oauth-basic@github.com`n"
+            Write-Host "APPVEYOR_REPO_COMMIT_AUTHOR_EMAIL: $($env:APPVEYOR_REPO_COMMIT_AUTHOR_EMAIL)"
+            Write-Host "APPVEYOR_REPO_COMMIT_AUTHOR: $($env:APPVEYOR_REPO_COMMIT_AUTHOR)"
+            git config --global user.email "$($env:APPVEYOR_REPO_COMMIT_AUTHOR_EMAIL)"
+            git config --global user.name "$($env:APPVEYOR_REPO_COMMIT_AUTHOR)"
+            git config --global core.autocrlf true
+            git config --global core.safecrlf false
+
+            # Push changes to GitHub
+            Invoke-Process -FilePath "git" -ArgumentList "checkout main"
+            git add --all
+            git status
+            git commit -s -m "AppVeyor validate: $newVersion"
+            Invoke-Process -FilePath "git" -ArgumentList "push origin main"
+            Write-Host "$module $newVersion pushed to GitHub." -ForegroundColor "Cyan"
+        } Catch {
+            # Sad panda; it broke
+            Write-Warning -Message "Push to GitHub failed."
+            Throw $_
+        }
+        #>
+
+            # Publish the new version to the PowerShell Gallery
+            Try {
+                # Build a splat containing the required details and make sure to Stop for errors which will trigger the catch
+                $Params = @{
+                    Path        = $moduleParent
+                    NuGetApiKey = $env:NuGetApiKey
+                    ErrorAction = "Stop"
+                }
+                Publish-Module @Params
+                #Write-Host "$module $newVersion published to the PowerShell Gallery." -ForegroundColor "Cyan"
+                Write-Host "$module $version published to the PowerShell Gallery." -ForegroundColor "Cyan"
+            } Catch {
+                # Sad panda; it broke
+                Write-Warning -Message "Publishing $module $version to the PowerShell Gallery failed."
+                Throw $_
+            }
+        }
     }
 }
-
-Write-Host "=============================="
 
 # Line break for readability in AppVeyor console
 Write-Host ""
 
-# Install packages
-
-if (-Not ($packageProvider = Get-PackageProvider -ListAvailable | Where-Object { $_.Name -like "Nuget" -and $_.Version -ge $([System.Version]"2.8.5.208") })) {
-    Write-Host "Installing Nuget package provider."
-    Install-PackageProvider -Name NuGet -MinimumVersion "2.8.5.208"
-}
-
-If (Get-PSRepository -Name PSGallery | Where-Object { $_.InstallationPolicy -ne "Trusted" }) {
-    Write-Host "Trust repository: PSGallery." -ForegroundColor Cyan
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-}
-$Modules = @("Pester", "PSScriptAnalyzer", "posh-git", "MarkdownPS")
-ForEach ($Module in $Modules) {
-    Write-Host "Checking module $Module." -ForegroundColor Cyan
-    If ([System.Version]((Find-Module -Name $Module | Sort-Object -Property Version -Descending | Select-Object -First 1).Version) -gt [System.Version](Get-Module -Name $Module -ListAvailable | Sort-Object -Property Version -Descending | Select-Object -First 1).Version) {
-        Write-Host "Installing module $Module." -ForegroundColor Cyan
-        Install-Module -Name $Module -SkipPublisherCheck -Force -Verbose
-        Write-Host "Loading $Module" -ForegroundColor Cyan
-        Import-Module -Name $Module -Force
-    } else {
-        Write-Host "Loading $Module" -ForegroundColor Cyan
-        Import-Module -Name $Module -Force
-    }
-}
-
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCDffWkKkvvtw0S
-# wyst/rlkHVxIW6FZDPL0Z0jv6maITKCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAXtNJk3pxn9lES
+# yzAOxRb8rDAgYys2iPyqqPxPAF/TTqCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -187,11 +275,11 @@ ForEach ($Module in $Modules) {
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgqjnpjyRQXtGYW6+IWn/XZodLVBP/GKN2HkYEmOXP+JAwDQYJKoZIhvcNAQEB
-# BQAEggEAD4Rr065QSGfsaOl/kilJ7BmjmoZhtPH3MAbtrgIGin3T46AkOKA9i+EP
-# hRzn1lE3iA2ffx1JV57+jfmxt0kpN0/OXSSfNkZMhK42/TdeSDCcqtRKp+8Gx/Z0
-# OuA/AwmK7oQIqmIr1B3l72lJcQt6paIdA0SF9zoa8mi9udHKzno1Rtt+nQZwgFZL
-# N3RjRFk6Dcwmj39wujrgYcoPfzlGVw1RCDqcS3fUugq7uqdvhsjWyAbcCB7AEhz2
-# yRIDgX3/dFi9w4ieYyibFYOG6b2CaNdcwL01doGuOVHa7PKOZe9D82e/Pe9y2RxW
-# KD3PLCoR/3SZx2wKeEMwoTIoFj4Ngw==
+# IgQg4N66lle7sHBejZbfXDBqw7jBLD9W6CQuNvbv9UEwVskwDQYJKoZIhvcNAQEB
+# BQAEggEAcYggnWRS4ymc8aX/Nnyms7AxNBZKSt5BKHKQMrRCyEgrC5+Ch8hu7Fex
+# vfIA4imbUsH6QyxBIkVk7mzycRtpYJi2uSzGhoRiF2pbGTvTqcaVh+XE/2zkh/LP
+# bWw5ljJxJGlr+CRrMOS4ha5XiWxCv/f6fpVI1g6zo1wdYF8/xlvzYe3ZVO5fTyMx
+# bQ5h/sX79eJ1yR3f9Ld4g4/PhCCuwsd3aymOnYE6rFldI/xoAt+qs6VTYYvLXyBt
+# 0b8sFKSY0SjZbRj2lqHUCeDmR/H0jOXTb5VRH9NGeBUG0DC3XYJeXSxpVj2crus7
+# qWjL0nrWki99sHFzSRoT5wL9KbM/BQ==
 # SIG # End signature block
