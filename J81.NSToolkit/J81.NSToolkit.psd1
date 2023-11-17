@@ -12,7 +12,7 @@
     RootModule        = 'J81.NSToolkit.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '2311.2200'
+    ModuleVersion     = '2311.1723'
 
     # Supported PSEditions
     # CompatiblePSEditions = @()
