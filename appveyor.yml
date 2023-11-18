@@ -24,4 +24,4 @@ skip_commits:
 
 only_commits:
   files:
-    - J81.ADCToolkit/**/*
+    - J81.NSToolkit.*/**/*
