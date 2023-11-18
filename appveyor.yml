@@ -5,9 +5,9 @@ skip_tags: true
 image: Visual Studio 2022
 environment:
   GitHubKey:
-    secure: ${{ secrets.GitHubKey }}
+    secure: oQiZ+bhbS5xA+tjgAIVgKTbmDjFzwjLTBEcp24QYMEcNZillCY5LyfuxwMtbbYB+uIets6jrO5B1pHhuCQlHp4J1TQ67PAlKR+/rzJiKhCnCWqAUwgkQpThmX2daD5IR
   NuGetApiKey:
-    secure: ${{ secrets.NuGetApiKey }}
+    secure: rPSzJcM4Eg8bvjQW++ROY8rluvZyT7YjzmVgnFjNLYwU1WZ/kT1weSz0eherkZzY
 install:
 - ps: . .\ci\Install.ps1
 build_script:
@@ -24,4 +24,4 @@ skip_commits:
 
 only_commits:
   files:
-    - J81.ADCToolkit/**/*
+    - J81.NSToolkit.*/**/*
