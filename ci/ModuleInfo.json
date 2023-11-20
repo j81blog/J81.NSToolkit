@@ -8,16 +8,16 @@
             "ManifestFilepath": "J81.NSToolkit\\J81.NSToolkit.psd1"
         },
         {
-            "ModuleName": "J81.NSToolkit.Conf",
-            "ModuleRoot": "J81.NSToolkit.Conf",
-            "ModuleFilepath": "J81.NSToolkit.Conf\\J81.NSToolkit.Conf.psm1",
-            "ManifestFilepath": "J81.NSToolkit.Conf\\J81.NSToolkit.Conf.psd1"
+            "ModuleName": "J81.NSToolkit.Config",
+            "ModuleRoot": "J81.NSToolkit.Config",
+            "ModuleFilepath": "J81.NSToolkit.Config\\J81.NSToolkit.Config.psm1",
+            "ManifestFilepath": "J81.NSToolkit.Config\\J81.NSToolkit.Config.psd1"
         },
         {
-            "ModuleName": "J81.NSToolkit.Stat",
-            "ModuleRoot": "J81.NSToolkit.Stat",
-            "ModuleFilepath": "J81.NSToolkit.Stat\\J81.NSToolkit.Stat.psm1",
-            "ManifestFilepath": "J81.NSToolkit.Stat\\J81.NSToolkit.Stat.psd1"
+            "ModuleName": "J81.NSToolkit.Stats",
+            "ModuleRoot": "J81.NSToolkit.Stats",
+            "ModuleFilepath": "J81.NSToolkit.Stats\\J81.NSToolkit.Stats.psm1",
+            "ManifestFilepath": "J81.NSToolkit.Stats\\J81.NSToolkit.Stats.psd1"
         }
     ]
 }
