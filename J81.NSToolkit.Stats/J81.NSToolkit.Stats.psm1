@@ -2,7 +2,7 @@
 Param()
 
 #Set the minimum version of the J81.NSToolkit module that is required.
-$minimumVersion = '2311.1800'
+$minimumVersion = '2311.2021'
 
 #Check if the J81.NSToolkit module is installed.
 if ( -Not ( Get-Module -Name J81.NSToolkit -ListAvailable | Where-Object Version -EQ $minimumVersion ) ) {
