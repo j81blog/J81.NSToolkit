@@ -12,7 +12,7 @@
     # RootModule        = ''
 
     # Version number of this module.
-    ModuleVersion     = '2402.222.0'
+    ModuleVersion     = '2402.222.1'
 
     # Supported PSEditions
     # CompatiblePSEditions = @()
