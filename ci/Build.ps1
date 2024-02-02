@@ -1,7 +1,5 @@
 [OutputType()]
-param (
-    $ModuleName = 'AppVentiX'
-)
+param ()
 Write-Host ""
 Write-Host "Script............: $($myInvocation.myCommand.name)"
 
@@ -17,7 +15,8 @@ if (Test-Path -Path 'env:GITHUB_WORKSPACE') {
 }
 
 $projectRoot = ( Resolve-Path -Path ( Split-Path -Parent -Path $PSScriptRoot ) ).Path
-$moduleRoot = (Join-Path -Path $projectRoot -ChildPath "J81.NSToolkit")
+$moduleName = Split-Path -Leaf -Path $projectRoot
+$moduleRoot = (Join-Path -Path $projectRoot -ChildPath "$($moduleName)")
 
 Import-Module -Name PowerShellGet -Force
 Write-Host "Environment.......: $environment"
@@ -26,11 +25,11 @@ Write-Host "Module root.......: $moduleRoot"
 $psTestGalleryUri = 'https://www.poshtestgallery.com/api/v2/'
 Register-PackageSource -Trusted -ProviderName 'PowerShellGet' -Name 'PSTestGallery' -Location $psTestGalleryUri -Force -ErrorAction SilentlyContinue | Out-Null
 
-$moduleManifest = Test-ModuleManifest -Path (Join-Path -Path $moduleRoot -ChildPath "$($ModuleName).psd1")
+$moduleManifest = Test-ModuleManifest -Path (Join-Path -Path $moduleRoot -ChildPath "$($moduleName).psd1")
 
 if ($moduleManifest) {
     Write-Host "Module manifest...: $($moduleManifest.Name)"
-    Write-Host "Module name.......: $($ModuleName)"
+    Write-Host "Module name.......: $($moduleName)"
     Write-Host "Module version....: $($moduleManifest.Version)"
 } else {
     Write-Error "Module manifest not found." -ErrorAction Stop
@@ -51,7 +50,7 @@ $environments['main'] = @{
     ErrorAction = "Stop"
 }
 
-$existingModules = Find-Module -Name $ModuleName -Repository $($environments["${env:GITHUB_REF_NAME}"].Repository) -ErrorAction SilentlyContinue -AllVersions
+$existingModules = Find-Module -Name $moduleName -Repository $($environments["${env:GITHUB_REF_NAME}"].Repository) -ErrorAction SilentlyContinue -AllVersions
 
 Write-Host "Gallery...........: $($environments["${env:GITHUB_REF_NAME}"].Repository)"
 $params = $environments["${env:GITHUB_REF_NAME}"]
@@ -70,8 +69,8 @@ Write-Host "Publishing finished."
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCPU3h6/0Y1B4CT
-# w/GUBb6nzoKzD+p2woSU4wQsY3sJkaCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAHHLmRfQsYBaUP
+# r4y8WAnH+YN0fKYPrj22uHOR+t8hRqCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -165,11 +164,11 @@ Write-Host "Publishing finished."
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQg5FKaB1DWn03/0sB+77eb7SKDrLFezErTptAQ9XpiwQswDQYJKoZIhvcNAQEB
-# BQAEggEAAq6Z9RfNkwFcNOVk1UJIQ1+qE5y0jFw4sCtLVBcKzqgU+/9n+6yG2nj0
-# 9Kjfr36vfeSVvaolEHdBIMuTGjqoC3jhZoQ6c3hu4pgIKMo8zdcm44EBnETEA4U6
-# oWXU9ir3QcPSw6mfYdSnhfQ53SGCWqC77D7zcQal/IendmFNAcK3C/WTzvoEd+E0
-# sipNGfZP3m4VLUHZtnvBzgBgFJ9ad56dK3iD8ZpVAAD3Mwubd10mULiC05TJhbO5
-# +5zlxhRsrsyqC+w+KPj8dfXuWFHh3uTvzhz4l4O3QmcNtc8I5oV7nAaIRKGRaUv1
-# 1OeLK2/L2/X/mqPKG6lg+GIpM1Rh+A==
+# IgQgZyLtYvQI2+DVIXVMDjxZ4hDy1hrV3ZGfpQU6K9k1KF0wDQYJKoZIhvcNAQEB
+# BQAEggEApjHr9r/43eOQthM2Q0wa+oqEIZGM5eayWdID3ML0VY1RwYg5a/fKqRMO
+# bcR44UADFVYGQ9uPeVj8nWmyytVz5gwxfgCr7pfRA2V69ElvKZqsbC8PlfzyIns0
+# qvSAwCoY4wCX+gh/PeODLHucYmVEmtJY7WryIUKIVKLPX8LaaVlN/SsX3nn2HIj0
+# 6DV1lFXtCnGhLRB+GBH7m6SM2I+wOBsBH3fAJqHjSyIv7GSWCdrqM3NDNl4EviMn
+# 1pvMte1KLtir9E+JM7+FVMwGvLJt5YnVn3IscuNX9VV8CLBVHqDcFzN6HEeDj5yC
+# sJvkert7kGo8csFKhjjVO6xKopjlXw==
 # SIG # End signature block
