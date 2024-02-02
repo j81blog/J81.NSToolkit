@@ -15,8 +15,15 @@ if (Test-Path -Path 'env:GITHUB_WORKSPACE') {
 
 }
 $projectRoot = ( Resolve-Path -Path ( Split-Path -Parent -Path $PSScriptRoot ) ).Path
+$moduleName = Split-Path -Leaf -Path $projectRoot
+$moduleRoot = (Join-Path -Path $projectRoot -ChildPath $moduleName)
+$ModuleManifest = (Join-Path -Path $moduleRoot -ChildPath "$($moduleName).psd1")
+
+Import-Module -Name PowerShellGet -Force
 Write-Host "Environment.......: $environment"
-Write-Host "Project root......: $ProjectRoot"
+Write-Host "Project root......: $projectRoot"
+Write-Host "Module root.......: $moduleRoot"
+Write-Host "Module manifest...: $ModuleManifest"
 
 $ProgressPreference = [System.Management.Automation.ActionPreference]::SilentlyContinue
 $WarningPreference = [System.Management.Automation.ActionPreference]::SilentlyContinue
@@ -24,9 +31,9 @@ $WarningPreference = [System.Management.Automation.ActionPreference]::SilentlyCo
 if (Get-Variable -Name projectRoot -ErrorAction "SilentlyContinue") {
     # Configure the test environment
     $testsPath = Join-Path -Path $projectRoot -ChildPath "Tests"
-    Write-Host "Tests path........:$testsPath"
+    Write-Host "Tests path........: $testsPath"
     $testOutput = Join-Path -Path $projectRoot -ChildPath "TestsResults.xml"
-    Write-Host "Output path.......:$testOutput"
+    Write-Host "Output path.......: $testOutput"
     $testConfig = New-PesterConfiguration -Hashtable @{
         Run        = @{
             Path     = $testsPath
@@ -56,8 +63,8 @@ Write-Host ""
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAfD+7A9UttP4S8
-# Y73PayIqYFC6qJdtKzVYBwqunQV+lqCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDRt5ePM6JBRZ2F
+# rOZoAuoqV/b1r7DvLK2+K/a74/BYt6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -151,11 +158,11 @@ Write-Host ""
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgmiiHXYPdYbaSaPbmQRI634HolVnA28Dc/yLjvciglNcwDQYJKoZIhvcNAQEB
-# BQAEggEAUV1y8Opa3GINCr2wyEIgadst3Mjn54iT99lbM1ZX7e1QcdcY0cLZCuyD
-# jnxWJn7HM3DqpdSZujK5no5o15Wtq/CU7n3yE66Kbu3vdFcNYGZuOsLvjLiX8m7c
-# dYht5nOwW9FWj2z1TnqiddN9Hri6mpGsTlhNxfMotil8zdxrFEoslPgvWAxhEa0s
-# fnafU7v3yA2L/nIfVTw3EdaYDLVh+PSwdGolehIWa2QDsptXTPHOYAqhtIiI6d3K
-# vovpkVvpqD7IPHzy7UAEpdpweu9DblBVF/Jp77ey9Eeiicv7BeBfDGZf5ukQ5E6j
-# L7D1rx9fYVrN5BFnTmJ53XI0ujmo6w==
+# IgQgaIACrq+ogtdvWhiL5IfPWz7xIKZ1/0fwDStEi28zrCAwDQYJKoZIhvcNAQEB
+# BQAEggEAMhiNlT0pK+2Vg1mDmZxudb6BSduBHXL/aUa3JWqhgeu6OtFnZcDS7VEq
+# WNoDFA9vRzcpAyq7FN8i6W2RLORx14BAvVXotwIgANdwSc2moUJgV/ArtLqHsnsu
+# AJWZbn7FIB4lMtf/oe5ZrR1IoiYSM7Dlu0VfTleCtkccTjaQfKnONtmLovKlQ4Ed
+# GBPYt76iEZ0BI/ZCpfEXsPtAVHVyeACltdHI7xO9WAOCCPo/veaDgHgFnmFTmVkV
+# x/D+zS2/nj2sNoTyqbVvpneCd4NZ3hursZuVxjNx4yXmXUatjYfSR1tB6Ox6wurH
+# mYHe3ju/topgOqbahnUh6IOyAJaDiw==
 # SIG # End signature block
