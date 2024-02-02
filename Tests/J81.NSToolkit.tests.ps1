@@ -24,7 +24,6 @@ Describe "Module Metadata validation" {
                 Import-Module "$moduleRoot" -Force -ErrorAction Stop
             } | Should -Not -Throw
         }
-
         It 'Valid Module Manifest' {
             {
                 $Script:manifest = Test-ModuleManifest -Path $ModuleManifest -ErrorAction Stop -WarningAction SilentlyContinue
@@ -51,7 +50,7 @@ Describe "Module Metadata validation" {
     }
 }
 
-Describe "Module validation" {
+Describe "Nested modules validation" {
     Context "Module <_>" -ForEach $nestedModules {
         It "Datafile should be valid" {
             {
@@ -126,8 +125,8 @@ Describe "General project validation" {
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAF6UHq3esXVuK4
-# WqfDSpQe6Bri0fV4PZQyY3v6X92gZ6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAtSTJ0cTMuY+oD
+# QtKewIzeG9Ut1VejvcCNl3eHq2KiIqCCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -221,11 +220,11 @@ Describe "General project validation" {
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgSAagFtceptG4NLgRfy9zFdkb4E9gFCu8JXeLoH8YYVYwDQYJKoZIhvcNAQEB
-# BQAEggEAIDCEnhJM3ITMXWz/SJ5P3NsDkFbWEAG605aA0cNx7s3RAS23jD8QPJWo
-# TjbqlcB1tqPVvL4aF1DEPjT6XkbbHponW2zVfOKE4x+bRpZGIN3jeqqjVM56mpSW
-# oGoVHcEJ6k1NJc+D6BhO5iOKQkRv7kz1BX/9GZvd4DkfXxmQA9dvfg3II4939F2q
-# Q/kcLz5xWux93uJcPUaP/TvVvLL/INCZHVclgr0LVOw0z/IXmzokFyffJpF3AmLW
-# ayaceqjUX8ByR9mnPos6zEng5iU53uWnAZjlYq86IEkwbV+wlBYSWWHhO73lZhwf
-# qg+2jQIFIZrQ93ih4e+WxJ67avISjQ==
+# IgQgQD7UwAHnk5z7Wbd20Alm5tSDwGYIhMc+mSau1N7fYuwwDQYJKoZIhvcNAQEB
+# BQAEggEAE9OL04sb4oKHnw+OV/8mTS5C3iI03a0sLrG6Rl3G9Gg6YI/3dSuF23uJ
+# TwqBIQiFENEGJtK/K6r5elcJpRGI7k/ioKWdsZObfGFBjxRZ99bIuYtBw/0ECqd0
+# teb2gnX211nsOGbAl0E6mgaKD3XEL2ffxbYTkkCy/FdJijoRUx41NpeW8PQKCG9G
+# 0zzfLE0GCY3EUAbc2rUGIP6yxxS3EQAefZE4y6157ozZCitY/3h4CWIDbFQ6m0lL
+# YctgELIkiqMRty2YPTUyI0xPgKcO4d//6700et+klZvWEQkh4siW94Ypx+DNZ11O
+# VCJCpwL/uB7147hU6664Qv09xquEUg==
 # SIG # End signature block
