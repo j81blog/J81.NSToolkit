@@ -1,9 +1,13 @@
-name: Test PowerShell on Windows-2022
-on: push
+name: AppVentiX PowerShell Module
+on:
+  push:
+    branches:
+      - 'dev'
+      - 'main'
 
 jobs:
   pester-test:
-    name: Pester test
+    name: validation and push
     runs-on: windows-2022
     steps:
       - name: Check out repository code
@@ -14,7 +18,14 @@ jobs:
         shell: pwsh
         run: |
           .\ci\Install.ps1
-      - name: Perform a Pester test from the Tests.ps1 file
+      - name: Perform tests
         shell: pwsh
         run: |
           .\ci\Tests.ps1
+      - name: Publish module
+        shell: pwsh
+        env:
+          NugetApiKeyDev: ${{ secrets.PSGALLERYTEST }}
+          NugetApiKey: ${{ secrets.PSGALLERY }}
+        run: |
+          .\ci\Build.ps1
