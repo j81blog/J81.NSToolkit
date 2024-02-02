@@ -19,23 +19,23 @@ function Connect-NSNode {
         Connect to the NS node with the specified management url and credential
     .NOTES
         File Name : Connect-NSNode
-        Version   : v2204.722
+        Version   : v2401.3122.0
         Author    : John Billekens
         Requires  : PowerShell v5.1 and up
-                    NS 11.x and up
+                    NS 13.0 and up
                     Initial source https://github.com/devblackops/NetScaler
     #>
     [cmdletbinding(DefaultParameterSetName = 'Connect')]
     param(
-        [Parameter(ParameterSetName = 'Connect')]    
+        [Parameter(ParameterSetName = 'Connect')]
         [ValidatePattern('^(https?:[\/]{2}.*)$', Options = 'None')]
         [ValidateNotNullOrEmpty()]
         [System.Uri]$ManagementURL = (Read-Host -Prompt "Enter the NetScaler Management URL. E.g. https://citrixacd.domain.local"),
-    
+
         [Parameter(ParameterSetName = 'Connect', Mandatory)]
         [System.Management.Automation.PSCredential]
         [System.Management.Automation.Credential()]$Credential = (Get-Credential -Message "Enter username and password for the NetScaler`r`nE.g. nsroot / P@ssw0rd" ),
-        
+
         [Parameter(ParameterSetName = 'Connect')]
         [int]$Timeout = 900,
 
@@ -65,7 +65,7 @@ function Connect-NSNode {
     } else {
         $login = @{
             login = @{
-                username = $Credential.UserName;
+                username = $Credential.UserName
                 password = $Credential.GetNetworkCredential().Password
                 timeout  = $Timeout
             }
@@ -95,7 +95,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         return true;
     }
 }
-"@ 
+"@
                 }
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             } else {
@@ -106,12 +106,12 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             $newTlsTypes = [enum]::GetValues('Net.SecurityProtocolType') | Where-Object { $_ -gt $currentMaxTls }
             $newTlsTypes | ForEach-Object {
                 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor $_
-            }            
+            }
         } else {
             Write-Verbose -Message "Connecting to $ManagementURL..."
         }
         try {
-            $response = Invoke-RestMethod @params    
+            $response = Invoke-RestMethod @params
             if ($response.severity -eq 'ERROR') {
                 throw "Error. See response: `n$($response | Format-List -Property * | Out-String)"
             } else {
@@ -121,13 +121,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             throw $_
         }
         $NSSession = [PSObject]@{
-            ManagementURL     = $ManagementURL;
-            WebSession        = [Microsoft.PowerShell.Commands.WebRequestSession]$saveSession;
-            Username          = $Credential.UserName;
-            Version           = "UNKNOWN";
+            ManagementURL     = $ManagementURL
+            WebSession        = [Microsoft.PowerShell.Commands.WebRequestSession]$saveSession
+            Username          = $Credential.UserName
+            Version           = "UNKNOWN"
             IsConnected       = $false
             SessionExpiration = $SessionExpiration
-        }    
+        }
         try {
             Write-Verbose -Message "Trying to retrieve the NS version"
             $params = @{
@@ -149,7 +149,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             Write-Verbose -Message "Error. See response: `n$($response | Format-List -Property * | Out-String)"
         }
     }
-    $Script:NSLastSession = [PSObject]$NSSession.PSObject.Copy()
+    Save-NSLogonParams -NSSession $NSSession -ManagementURL $ManagementURL -Credential $Credential -ErrorAction SilentlyContinue
     if ($PassThru) {
         return $NSSession
     } else {
@@ -160,8 +160,8 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 # SIG # Begin signature block
 # MIIkmgYJKoZIhvcNAQcCoIIkizCCJIcCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCB75YHOTiFRw4oO
-# dnOQkgppul/JekHw1CoQ03aWZ7J3daCCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD++xJ6IHM5CVWA
+# Ba+E9OxgsZkj1DsUa3B+0/1zTV7YO6CCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -329,29 +329,29 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 # IFJTQSBDb2RlIFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUD
 # BAIBBQCggYQwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMx
 # DAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkq
-# hkiG9w0BCQQxIgQgQi36QDdNKtgOQp5zJkyQYEkDWQasV7aBNtrnpNmI7+UwDQYJ
-# KoZIhvcNAQEBBQAEggEAf1LGUcopgNp2ULxr+C17r+qQkLYr5nuCTbxl6Vfv+ARa
-# Fymas/4/O4j0JwKe69PUCuDuitkHYG1PJRa00erJipico72ZuFiwXHPjy1I40rno
-# ATgVGK6dNnHRxSrYBkXQYDCtoEF185Tg8x9lg1CdUtoF5QElXkGaUVJGJTqpShxo
-# fhWJofx03TQwNIys5dn6k5y+OCWyV/gRjsCJivlgfQu2I0a6aiw8PdkRff3XH6an
-# ryRUklFJtTqB43yW6Z7x4vSygryR6Q0LJvObOJ4kRfE6dfFTLt4Suzil1F+DcIXW
-# nLxi9n8TvN3fO34beY0K5YGtT4A7hqGzVbwl26uxR6GCA0swggNHBgkqhkiG9w0B
+# hkiG9w0BCQQxIgQgt7oVqxmG2bTOKJuv8GpM1RqkJMtosbxTu/IZHTo5zvcwDQYJ
+# KoZIhvcNAQEBBQAEggEAkDnwfxRW1LAoZgeLzhQ57pWafte+/LmfFtLBMOTa4Db/
+# D7Xn0h1QkcfhSDQKSRqD47fKJlMxcBsSFqlnb0rQFhEnivHVmD7pO7N5G/XnXULc
+# uMbeTNJ9lLWWZx+Wl7uaUmjTrO3DAQdw220QjCR/Yuj4R/gj0PZwXY6OCDaTS5cC
+# jGG9dIbhKJwbAtSfi7YrFAvIP5qKVLoPy4oIwBdZP54PjURB2Wa7FTa7ugWfPyFq
+# gEof2DD6xV0MbI6DkQmLRcR0uSIair1yK5w9mryfWwZCh2S1RDlng765F7+KHJd9
+# byNiLJS/tXcV5+Pj3x+yNCTmuWPAzWs6uAomEApHB6GCA0swggNHBgkqhkiG9w0B
 # CQYxggM4MIIDNAIBATCBkTB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EDlMJeF8oG0nqGXiO9kdItQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMx
-# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMTYyMDU4MDdaMD8GCSqG
-# SIb3DQEJBDEyBDDtMxjzrZnnaFMZmcIPX6X316YuAzsj1X8xff1xBp6xlArqJat4
-# JaQI8dVSL8w/b80wDQYJKoZIhvcNAQEBBQAEggIAFFhKC5xUaTjl/J9MEG1tF5ZS
-# JL3VPMn8GbSGF1E2+Kz5Rs8UKpaRDKYwNKHDEQ9LV4t+6FkqmzkvDlZP4vcqPgJq
-# ZMyrMLTqRxvgx+GW99Jwb68FxVgMzcKUQRV52tpQkPt5V7clrKgwpk1beNZ+Bhhl
-# rDi5Zceiw5BsFNpoxXeXikFdg9Ga29EiMsmyqviMX7XqZjU9FYd5M16NoQVOgZH0
-# mBP01vdH4Hyy9GbOiMcKZvdVr0IEPcQFw9HV91O+FJkhjQFwoqyR5jEQLzrPRMXP
-# dZQk2DSqf2hb/ry9VgxNQ2MmD7DklAtoJxCcOrprLwzg+6j8B14ZjCrmkHhXQF9Y
-# 1WIcCzp8qReuqFdovVJpgG10aOGA6xGPhHRjk368AQCYFT1Kx8zgWWzzgPI88Yn/
-# 5qR5Z+tYpOlPLLnjs6ulDh5PL5wzARwdeUTdD7J7CpmsZSgHtoFMTErXx3Txp5Y3
-# R+cGq2TzKa604dzVmdEjgGIHyMWtPJ5EAqeyytBkA+uQUP0rKudzlGyIl+Jcqwbp
-# 6bRWqgg55tErdMN7YrprvEX4rCT7aFwfwOKEL9s7pd2rNFih8EIfUnI8cthSYc01
-# ugzgoS1g9HovxUdMEE8JCFb0kGGXUh51y0wKqQthg4JpHNaltY0HOYgJFVNqldHH
-# QfqApZR1tA6V2L2x+gI=
+# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNDAxMzEyMTI4MjRaMD8GCSqG
+# SIb3DQEJBDEyBDD9eUfAhzDc1YcIkiksTFR/L5PF3CVsV+HoVug7qOrOVnXOcc5Z
+# g7v3KOmbDdp80AQwDQYJKoZIhvcNAQEBBQAEggIALnhJ/R9GexaZeSV5IYhGFIqA
+# Ow0HXHQgQd0aRExJTE/jJ1qmALXfQUReFMqWhPfZgjIgv8IQHbEB340cMEUdrMgK
+# bbPL+kNw1vsIyrzJ4FyxhqsEc+yIkaZeXzRboc1WOmI1L5tX8xpdRs3OQsZVQrM3
+# 8Ys5UDxsmAp7G2la6TcmxZKZma4OLiErWFwNEfb8KbLW59WChOKtKSk3s1AaUhdS
+# RRJJBSHlDXjoZ3PBWJmhdwIlVXFFg9YRdRVScxALPtOk4EsguodlFrUJfmgO8P34
+# ylTUCsTxrM1RmXcwTHuy3KpscD64jsnZxFR/ibufbj526P2q1/d2D0PwK47cvBww
+# ED+W5KoM6PsEW/Px7w/fpRANtzVnXUS8B3LThreyvNEajJ/EwtzQ2IdiG7yH42Nr
+# 72HnK+Tzuulbv0t/2jSzp71jkjxeAc3+AgO8P9P/grbUWX1pMagIkH6chhJV5+OA
+# iRnLl4Vb5dSb+h0YywxnckfwEo59IrGdqQ1PO7I3KpG5b541DqkL3D1aNb+Z1InM
+# ZNiatlzNaAPM2A1TpXXKqKwgwTyXXtN5YMwst72Dk1wW1BPthLJ/YM+3Wr5WW2Rp
+# 1G9ZgsbVp2hrqkHkdCUycBld2AK77LGz67d778hJaKnGpjx05qg7oEpBkq95G17X
+# EWR+s8wB88inygI06pE=
 # SIG # End signature block

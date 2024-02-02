@@ -1,220 +1,62 @@
-function Invoke-NSNitroApi {
+function Disconnect-NSNode {
     <#
     .SYNOPSIS
-        Invoke NetScaler NITRO REST API
+        Disconnect a session with NetScaler.
     .DESCRIPTION
-        Invoke NetScaler NITRO REST API
+        Disconnect a session with NetScaler.
     .PARAMETER NSSession
-        An existing custom NS Web Request Session object returned by Connect-NSNode
-    .PARAMETER Method
-        Specifies the method used for the web request
-    .PARAMETER Type
-        Type of the NS appliance resource
-    .PARAMETER Resource
-        Name of the NS appliance resource, optional
-    .PARAMETER Action
-        Name of the action to perform on the NS appliance resource
-    .PARAMETER Arguments
-        One or more arguments for the web request, in hashtable format
-    .PARAMETER Query
-        Specifies a query that can be send  in the web request
-    .PARAMETER Filters
-        Specifies a filter that can be send to the remote server, in hashtable format
-    .PARAMETER Payload
-        Payload  of the web request, in hashtable format
-    .PARAMETER GetWarning
-        Switch parameter, when turned on, warning message will be sent in 'message' field and 'WARNING' value is set in severity field of the response in case there is a warning.
-        Turned off by default
-    .PARAMETER Summary
-        Return a subset of the requested data (if supported)
-    .PARAMETER NitroPath
-        Specify the nitro path to the specified command.
-        E.g. 'nitro/v1/config'
-    .PARAMETER OnErrorAction
-        Use this parameter to set the onerror status for nitro request. Applicable only for bulk requests.
-        Acceptable values: "EXIT", "CONTINUE", "ROLLBACK", default to "EXIT"
+        The Session variable
     .EXAMPLE
-        PS C:\>Invoke-NSNitroApi -NSSession $NSSession -Method GET -Type nsip
-    .EXAMPLE
-        PS C:\>$Payload = @{ name = $name }; Invoke-NSNitroApi -NSSession $NSSession -Method POST -NitroPath nitro/v1/config -Type lbvserver -Action enable -Payload $Payload
-        Specify payload and invoke the specified api
+        PS C:\>Disconnect-NSNode
+        Disconnect the (current active) NS Node
     .NOTES
-        File Name : Invoke-NSNitroApi
-        Version   : v2111.1520
+        File Name : Disconnect-NSNode
+        Version   : v2401.3122.0
         Author    : John Billekens
         Requires  : PowerShell v5.1 and up
-                    NS 11.x and up
-                    Initial source https://github.com/devblackops/NetScaler
+                    NS 13.0 and up
     #>
-    [CmdletBinding()]
-    param (
-        [alias("Session")]
-        [Parameter(Mandatory)]
-        [PSObject]$NSSession,
+    [cmdletbinding()]
+    param(
+        $NSSession = (Get-NSSession),
 
-        [Parameter(Mandatory)]
-        [ValidateSet('ADD', 'APPLY', 'CHANGE', 'CHECK', 'CLEAR', 'CONVERT', 'COUNT', 'CREATE', 'DELETE', 'DIFF', 'DISABLE', 'ENABLE', 'EXPIRE', 'EXPORT', 'FLUSH', 'FORCE', 'GET', 'GET (ALL)', 'IMPORT', 'INSTALL', 'INIT', 'JOIN', 'KILL', 'LINK', 'PING', 'PING6', 'REBOOT', 'RELEASE', 'RENAME', 'RENUMBER', 'RESET', 'RESTART', 'RESTORE', 'SAVE', 'SEND', 'SHUTDOWN', 'SIGN', 'SWITCH', 'SYNC', 'TRACEROUTE', 'TRACEROUTE6', 'UNLINK', 'UNLOCK', 'UNSET', 'UNSIGN', 'UPDATE')]
-        [string]$Method,
-
-        [Parameter(Mandatory)]
-        [string]$Type,
-
-        [string]$Resource,
-
-        [string]$Action,
-
-        [hashtable]$Arguments = @{ },
-        
-        [ValidateCount(0, 1)]
-        [hashtable]$Query = @{ },
-
-        [ValidateScript( { $Method -in 'GET', 'GET-ALL' })]
-        [hashtable]$Filters = @{ },
-
-        [ValidateScript( { $Method -ne 'GET' })]
-        [hashtable]$Payload = @{ },
-
-        [switch]$GetWarning = $false,
-
-        [ValidateScript( { $Method -in 'GET', 'GET-ALL' })]
-        [switch]$Summary = $false,
-
-        [ValidateSet('EXIT', 'CONTINUE', 'ROLLBACK')]
-        [string]$OnErrorAction = 'EXIT',
-
-        [ValidatePattern('^nitro\/v[0-9]\/(config|stat)$')]
-        [string]$NitroPath = "nitro/v1/config",
-
-        [Parameter(DontShow, ValueFromRemainingArguments)]
-        [Object]$RemainingArguments
+        [switch]$PassThru
     )
-    if ([string]::IsNullOrEmpty($($NSSession.ManagementURL.AbsoluteUri))) {
-        throw "ERROR. Probably not logged into the NS, Connect by running `"Connect-NSNode`""
-    }
-    $uri = "$($NSSession.ManagementURL.AbsoluteUri)$($NitroPath)/$Type"
 
-    if (-not ([string]::IsNullOrEmpty($Resource))) {
-        $uri += "/$Resource"
-    }
-    if ($Method -ne 'GET') {
-        if (-not ([string]::IsNullOrEmpty($Action))) {
-            $uri += "?action=$Action"
-        }
-        if ($Arguments.Count -gt 0) {
-            $queryPresent = $true
-            if ($uri -like '*?action*') {
-                $uri += '&args='
-            } else {
-                $uri += '?args='
-            }
-            $argsList = @()
-            foreach ($arg in $Arguments.GetEnumerator()) {
-                $argsList += "$($arg.Name):$([System.Uri]::EscapeDataString($arg.Value))"
-            }
-            $uri += $argsList -join ','
-        }
-    } else {
-        $queryPresent = $false
-        if ($Arguments.Count -gt 0) {
-            $queryPresent = $true
-            $uri += '?args='
-            $argsList = @()
-            foreach ($arg in $Arguments.GetEnumerator()) {
-                $argsList += "$($arg.Name):$([System.Uri]::EscapeDataString($arg.Value))"
-            }
-            $uri += $argsList -join ','
-        }
-        if ($Filters.Count -gt 0) {
-            $uri += if ($queryPresent) { '&filter=' } else { '?filter=' }
-            $filterList = @()
-            foreach ($filter in $Filters.GetEnumerator()) {
-                $filterList += "$($filter.Name):$([System.Uri]::EscapeDataString($filter.Value))"
-            }
-            $uri += $filterList -join ','
-        }
-        if ($Query.Count -gt 0) {
-            $uri += $Query.GetEnumerator() | ForEach-Object { "?$($_.Name)=$([System.Uri]::EscapeDataString($_.Value))" }
-        }
-        if ($Summary) {
-            $uri += "?view=$([System.Uri]::EscapeDataString("summary"))"
-        }
-    }
-    Write-Verbose -Message "URI: $uri"
-    $jsonPayload = $null
-    if ($Method -ne 'GET') {
-        $warning = if ($GetWarning) { 'YES' } else { 'NO' }
-        $hashtablePayload = @{ }
-        $hashtablePayload.'params' = @{'warning' = $warning; 'onerror' = $OnErrorAction; <#"action"=$Action#> }
-        $hashtablePayload.$Type = $Payload
-        $jsonPayload = ConvertTo-Json -InputObject $hashtablePayload -Depth 100
-        Write-Verbose -Message "Method: $Method | Payload:`n$jsonPayload"
-    }
-    $response = [PSCustomObject]@{
-        errorcode = 0
-        message   = "Done"
-        severity  = "NONE"
-    }
-    $webResult = $null
-    $restError = $null
     try {
-        $restError = @()
-        $restParams = @{
-            Uri           = $uri
-            ContentType   = 'application/json'
-            Method        = $Method
-            WebSession    = $NSSession.WebSession
-            ErrorVariable = 'restError'
-            Verbose       = $false
-        }
-        if ($Method -ne 'GET') {
-            $restParams.Add('Body', $jsonPayload)
-        }
-        if ((-Not ('PSEdition' -notin $PSVersionTable.Keys -or $PSVersionTable.PSEdition -eq 'Desktop')) -and ($uri -match "^https://.*?$")) {
-            $restParams.Add("SkipCertificateCheck", $true)
-        }
-        #$response = Invoke-RestMethod @restParams
-        $webResult = Invoke-WebRequest @restParams
-        if (-Not [String]::IsNullOrEmpty($($webResult.Content))) {
-            $response = ConvertFrom-Json $([String]::new($webResult.Content))
-        }
-    } catch [Exception] {
-        try {
-            $response = $restError.Message | ConvertFrom-Json -ErrorAction Stop
-        } catch {
-            $response = $restError.Message
-        }
-        if ($restError.InnerException.Message) {
-            $response | Add-Member -MemberType NoteProperty -Name ErrorMessage -Value $restError.InnerException.Message-ErrorAction SilentlyContinue
-        }
-        if ($Type -eq 'reboot' -and $restError[0].Message -eq 'The underlying connection was closed: The connection wasclosed unexpectedly.') {
-            Write-Warning -Message 'Connection closed due to reboot'
+        $null = Invoke-NSNitroApi -NSSession $NSSession -Method POST -Type logout -NitroPath nitro/v1/config
+    } finally {
+        if (-Not [String]::IsNullOrEmpty($($NSSession.ManagementURL))) {
+            $ManagementURL = $NSSession.ManagementURL
         } else {
-            if ([String]::IsNullOrEmpty($($restError.Message)) -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
-                Throw $_.Exception.Message
-            }
+            $ManagementURL = $null
         }
+        if (-Not [String]::IsNullOrEmpty($($NSSession.Username))) {
+            $Username = $NSSession.Username
+        } else {
+            $Username = $null
+        }
+
+        $NSSession = [PSObject]@{
+            ManagementURL     = $ManagementURL
+            WebSession        = $null
+            Username          = $Username
+            Version           = "UNKNOWN";
+            IsConnected       = $false
+            SessionExpiration = $(Get-Date)
+        }
+        Save-NSLogonParams -NSSession $NSSession
     }
-    if ($response -and $type) {
-        $response | Add-Member -MemberType NoteProperty -Name type -Value $Type -ErrorAction SilentlyContinue
-    }
-    if ($webResult.statuscode) {
-        $response | Add-Member -MemberType NoteProperty -Name StatusCode -Value $webResult.statuscode -ErrorAction SilentlyContinue
-    }
-    if ($webResult.StatusDescription) {
-        $response | Add-Member -MemberType NoteProperty -Name StatusDescription -Value $webResult.StatusDescription -ErrorAction SilentlyContinue
-    }
-    Write-Output $response
-    if (($response.severity -eq 'ERROR') -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
-        Write-Verbose "ERROR: $($response | Format-List -Property * | Out-String)"
-        Throw "[$($response.errorcode)] $($response.message)"
+    if ($PassThru) {
+        return $NSSession
     }
 }
 
 # SIG # Begin signature block
 # MIIkmgYJKoZIhvcNAQcCoIIkizCCJIcCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD135ZSRfDg+TRI
-# 1eQbVlWzrOYuMMwlEZT2YLsMEy9FyqCCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBRWmUgUkbQVNfF
+# 6kv5rFkacubrbujTA5PNXjIab2Ckc6CCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -382,29 +224,29 @@ function Invoke-NSNitroApi {
 # IFJTQSBDb2RlIFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUD
 # BAIBBQCggYQwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMx
 # DAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkq
-# hkiG9w0BCQQxIgQg7g+J7j/ks7yLK/yrCqDTc91HCfIzaYUKpOQyGxApEmQwDQYJ
-# KoZIhvcNAQEBBQAEggEAOK65S8wY/M16BWR0WbcoeaWYndteeCK5ILhTYiREMg7R
-# UGDE1S2W6c5DSqVKAQFFMlzntFV1jmXG/Mn7ZcR/GbvlzzJL7V1bsRo8/AWM5jax
-# Ps4so0fivRPbKWOPlAtdE6avpHJ63knWunEDkE3d/hOLxc3PWawKl9c/Ia/LyExY
-# +6hfITtREhgCYW4nqpzWQ5l44A7pkD9+c9Vkly/4yhBgcOi61SkYZ7lRiyLTs76y
-# 2xCTw/cQbt3/Qf/dkNAz8d9eI8PfypRv5qpOF+XG8tS1WEeq5c6kU73A77zxBVfp
-# gU/+YABGb+y6Vng3x6MjJxkmVWDXhlcARkenWkG3jaGCA0swggNHBgkqhkiG9w0B
+# hkiG9w0BCQQxIgQgQXhqIDOE00yHyHVSxzTmr3HNOvQjR0jYZfG981mlroQwDQYJ
+# KoZIhvcNAQEBBQAEggEADqalrdZWT8AXv+f4cCussE5VJaAfTcZxV6zx3ZJsvJvS
+# VGf3+tMZv1+UL+0nxjpXEVd+NGKC206WI3Ny3Wbz0uF6MbeAag8gCUEmwefTXhCn
+# M+inV2XRfkn9T6ghYpQA7Td2hKalK/qahXKkltlDMqk8PHuY6R/xQr+GPDY164ey
+# NLIY8UnobYEe2FleZnsq4AeTQpU/9lDWeVxn+NAtAj4p7tdatZOotTDzb+Q3MMDZ
+# KCFPzewjgqC0WivjzmpZ79fhhPK+qY5JcH5a19kxsdp+/BW2rtLFc9QGcu9r86h0
+# ayXMwZdDOkL8B2SxaX27Y6VALF9dxkeeAURjDoq1tqGCA0swggNHBgkqhkiG9w0B
 # CQYxggM4MIIDNAIBATCBkTB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EDlMJeF8oG0nqGXiO9kdItQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMx
-# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMTYyMDU4MjVaMD8GCSqG
-# SIb3DQEJBDEyBDA2rKTwo1W8WqhrAIFgn33o2SQ5GHxliKy9PM6gS0neSPGgQn59
-# Iozb/y5ZurOuYLgwDQYJKoZIhvcNAQEBBQAEggIAb34hCyNqxcj00V+egrSXCha6
-# A02Di6m/dl07w9zW+oflZLvdG1z6kwz94owtRYv6GkmsiqQ+UQaGczoKeJCn+Og2
-# eVmAAG0GKvY0ngEU8gDkCTfQNN5dosoH6ZSjiHWEyIhz2v9d9ulcJgRrV+lrinaA
-# coFjZUVQ6EaNJQq3EUZS6NjiGmRC0o6SaDnFAxVF9Gx6b7bZAzZsuzcYsyGg3JvB
-# AIV9sM/S+JBGeT5VSqaHXLmoIYPmlil5BOIP5glC4q9vehByaLE9P6PptSB95Fu6
-# kRKsler2/TvgAJyPh4jFvT/qifxuJc1O9dPblvjNIsvLM1diamV8lLT9d5SubF5T
-# Bj3qlMhZMMKTyl/+V1APjw9XA30MIlIWRx2benxzENGkO89Y4VExpGqQt3WEGRQG
-# BkKHx9tdHCxLNKjjLR4Fc6qLzC+NCbuzZlOYc8LW8i7zWDj+bjsQNv0bh9v7znmr
-# watu/PsT/iCYrxkc1XtQ0Gm5RPhTFP+fC5IWHQYUxHybp+FQS7MSqVb/ghu0lWpA
-# l7nk57coNsXp6Q67rSowmjYvgMXNyXcBVD9/Ypo+1/i2OtxB2Yf5k0HFzJA0bMNa
-# 8Oqi4o/PtwyUIbY9VU05hEAd0Rk3PS22WZvsK2qc6GcdbUpjV7jx/y+ea7/5K4IR
-# vDtA+SJDp3vgJTGc8LA=
+# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNDAxMzEyMTI4MjdaMD8GCSqG
+# SIb3DQEJBDEyBDD0aDHpXbTHQDwp6tTZj5c9rkUFQ2g4/x2xoGWl2UK4ULvlrEf9
+# mT/I9BdByfv0W/8wDQYJKoZIhvcNAQEBBQAEggIAma+WGF+Wp8yVPKiRCT3wmsQ7
+# Fr2mlwRKgelRTvGjGF8JDS77y0W0RoPewnM2Wb4cDz9vlP5Bn5pKJBk0Z9URn2Xz
+# 73ctaKNceL6ocGx2cC1rruYjuLZ8ynh7rjipL4CCdWaOebaNgSdsjN9+Ge5x9kd+
+# jFLcFnKWDrBp8CjA2UwU40motpRv3V8uTOw4wlMaUNSgCL+Q0Z5hz4JALvsADEAj
+# UQHXMFJ2QRa+aEhnLakBPuUqj9OOhAvQV777kHjXBMQTmYFwgQqU/ClMdEENVQO+
+# GKUJKatUytI8qTtKKSoUVSEpcJdmInRpvoxmXgWDl/rt4NqcQWGS1ZgGbywi34dS
+# +gLIBAex7MvH1Wwii621GCiTL2VVE4vlF7IKTU5Wj4bfpgb4r5kRJ07JitbkzfhT
+# DTGgEICGhPZ0omuZSfwNYKlu2FXOhm0l9rxS5N9hF2e655QIoT+P06BqdlVgy4Z5
+# kb9skGEZkm5nPBzr57yDfKTZvniem3Dq0ZTFf4wRleOlHqfn9wBT4ZgN9L5kBL4E
+# YIsR0809fJHG/wWnn++RtgVzn4loLOJuiE8ghEvTvaUHnpJiX/tM6gzah9hTm5X4
+# 7vgny2vz2ajW182Lmu1oH/drB2HY7IzDrK0R/44dX3R6RXmp+AUOAlesMcqV362l
+# +blgBvk5syZ0T3Ylovs=
 # SIG # End signature block

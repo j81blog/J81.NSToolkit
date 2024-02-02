@@ -1,68 +1,200 @@
-function Disconnect-NSNode {
+function Get-NSSession {
     <#
     .SYNOPSIS
-        Disconnect a session with NetScaler.
+        Verify and retrieve an active session variable
     .DESCRIPTION
-        Disconnect a session with NetScaler.
+        Verify and retrieve an active session variable
     .PARAMETER NSSession
-        The Session variable
+        Specify an active session (Output from Connect-NSNode)
     .EXAMPLE
-        PS C:\>Disconnect-NSNode
-        Disconnect the (current active) NS Node
+        PS C:\>Get-NSSession
+        Get the active session and if not found, try to connect
     .NOTES
-        File Name : Disconnect-NSNode
-        Version   : v2111.2607
+        File Name : Get-NSSession
+        Version   : v2401.3122.0
         Author    : John Billekens
         Requires  : PowerShell v5.1 and up
-                    NS 11.x and up
+                    NS 13.0 and up
+    .LINK
+        https://blog.j81.nl
     #>
-    [cmdletbinding()]
+    [CmdletBinding()]
     param(
-        $NSSession = (Get-NSSession),
-
-        [switch]$PassThru
+        [Object]$NSSession = $nsToolkitCommon.ModuleValues.NSSession
     )
-
-    try {
-        $null = Invoke-NSNitroApi -NSSession $NSSession -Method POST -Type logout -NitroPath nitro/v1/config
-    } finally { 
-        if (-Not [String]::IsNullOrEmpty($($NSSession.ManagementURL))) {
-            $ManagementURL = $NSSession.ManagementURL
-        } else {
-            $ManagementURL = $null
+    Write-Verbose "Get-NSSession: Starting"
+    $IsActive = $false
+    if ($null -eq $NSSession -or ([String]::IsNullOrEmpty($NSSession))) {
+        $NSSession = [PSObject]@{
+            ManagementURL     = $null
+            WebSession        = $null
+            Username          = $null
+            Version           = "UNKNOWN"
+            IsConnected       = $false
+            SessionExpiration = $null
         }
+    } elseif ( ($null -ne $NSSession.SessionExpiration) -and ($NSSession.SessionExpiration -is [DateTime]) -and ($NSSession.SessionExpiration -le (Get-Date)) ) {
+        $IsActive = $false
+    } elseif ($NSSession.IsConnected -and ($NSSession.SessionExpiration -gt (Get-Date).AddSeconds(120))) {
+        $IsActive = $true
+    } else {
+        $IsActive = $false
+    }
+    Write-Verbose "isActive: $IsActive"
+    $MessageText = ". E.g. https://citrixacd.domain.local"
+    if ($IsActive -eq $false) {
+        if ($NSSession -eq [PSCustomObject] -and (-Not ($NSSession | Get-Member -Name "IsConnected" -ErrorAction SilentlyContinue -MemberType NoteProperty))) {
+            $NSSession | Add-Member -MemberType NoteProperty -Name "IsConnected" -Value $false
+        } else {
+            $NSSession.IsConnected = $false
+        }
+        try {
+            Write-Verbose "Check if the NSSession variable contains a hostname"
+            if ($null -ne $NSSession -and (-Not [String]::IsNullOrEmpty($( try { $NSSession.ManagementURL.ToString() } catch { $null } )))) {
+                $ManagementURL = [Uri]$NSSession.ManagementURL.ToString().TrimEnd('/')
+                $MessageText = ": $ManagementURL"
+                Write-Verbose "Valid ManagementURL found"
+            } elseif (-Not [String]::IsNullOrEmpty($($nsToolkitCommon.ModuleValues.ManagementURL)) ) {
+                $ManagementURL = $nsToolkitCommon.ModuleValues.ManagementURL
+                Write-Verbose "Valid ManagementURL found (From module variable)"
+            } elseif (-Not [String]::IsNullOrEmpty($(Get-Variable -Name ManagementURL -Scope 0 -ValueOnly -ErrorAction SilentlyContinue)) ) {
+                $ManagementURL = [Uri](Get-Variable -Name ManagementURL -Scope 0 -ValueOnly -ErrorAction SilentlyContinue)
+                $MessageText = ": $ManagementURL"
+                Write-Verbose "Valid ManagementURL found"
+            } elseif (-Not [String]::IsNullOrEmpty($(Get-Variable -Name ManagementURL -Scope Script -ValueOnly -ErrorAction SilentlyContinue)) ) {
+                $ManagementURL = [Uri](Get-Variable -Name ManagementURL -Scope Script -ValueOnly -ErrorAction SilentlyContinue)
+                $MessageText = ": $ManagementURL"
+                Write-Verbose "Valid ManagementURL found"
+            } elseif (-Not [String]::IsNullOrEmpty($(Get-Variable -Name ManagementURL -Scope Global -ValueOnly -ErrorAction SilentlyContinue)) ) {
+                $ManagementURL = [Uri](Get-Variable -Name ManagementURL -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
+                $MessageText = ": $ManagementURL"
+                Write-Verbose "Valid ManagementURL found"
+            }
+            Write-Verbose "ManagementURL: $($ManagementURL.ToString().TrimEnd('/'))"
+        } catch {
+            Write-Verbose "Caught an error, $($_.Exception.Message)"
+        }
+        Write-Verbose "NSSession: $($NSSession | Out-String)"
         if (-Not [String]::IsNullOrEmpty($($NSSession.Username))) {
             $Username = $NSSession.Username
         } else {
-            $Username = $null
+            $Username = "nsroot"
         }
-        $Script:NSSession = [PSObject]@{
-            ManagementURL     = $ManagementURL
-            WebSession        = $null
-            Username          = $Username
-            Version           = "UNKNOWN";
-            IsConnected       = $false
-            SessionExpiration = $(Get-Date)
+        $validCredential = $false
+        try {
+            Write-Verbose "Test if Variable NSCredential (Module) is a valid credential"
+            $tempCredential = $nsToolkitCommon.ModuleValues.Credential
+            if (-not ($null -eq $tempCredential) -and `
+                    -Not [String]::IsNullOrEmpty($tempCredential) -and `
+                    -Not ($tempCredential -eq [System.Management.Automation.PSCredential]::Empty) -and `
+                    $tempCredential -is [System.Management.Automation.PSCredential] -and `
+                    -Not [String]::IsNullOrEmpty($($tempCredential.Username)) ) {
+                Write-Verbose "Get (if it exists) the NSCredential variable (Module) for the NS Credential"
+                $NSCredential = $nsToolkitCommon.ModuleValues.Credential
+                $validCredential = $true
+                Write-Verbose "Valid Credential found"
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
         }
-        $Script:NSLastSession = [PSObject]@{
-            ManagementURL     = $ManagementURL
-            WebSession        = $null
-            Username          = $Username
-            Version           = "UNKNOWN";
-            IsConnected       = $false
-            SessionExpiration = $(Get-Date)
+        try {
+            Write-Verbose "Test if Variable NSCredential (Scope:0) is a valid credential"
+            $tempCredential = Get-Variable -Name NSCredential -Scope 0 -ValueOnly -ErrorAction SilentlyContinue
+            if (-not ($null -eq $tempCredential) -and `
+                    $validCredential -eq $false -and `
+                    -Not [String]::IsNullOrEmpty($tempCredential) -and `
+                    -Not ($tempCredential -eq [System.Management.Automation.PSCredential]::Empty) -and `
+                    $tempCredential -is [System.Management.Automation.PSCredential] -and `
+                    -Not [String]::IsNullOrEmpty($($tempCredential.Username)) ) {
+                Write-Verbose "Get (if it exists) the NSCredential variable (Scope:0) for the NS Credential"
+                $NSCredential = $tempCredential
+                $validCredential = $true
+                Write-Verbose "Valid Credential found"
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
+        }
+        try {
+            Write-Verbose "Test if Variable NSCredential (Scope:Script) is a valid credential"
+            $tempCredential = Get-Variable -Name NSCredential -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+            if (-not ($null -eq $tempCredential) -and `
+                    $validCredential -eq $false -and `
+                    -Not [String]::IsNullOrEmpty($tempCredential) -and `
+                    -Not ($tempCredential -eq [System.Management.Automation.PSCredential]::Empty) -and `
+                    $tempCredential -is [System.Management.Automation.PSCredential] -and `
+                    -Not [String]::IsNullOrEmpty($($tempCredential.Username)) ) {
+                Write-Verbose "Get (if it exists) the NSCredential variable (Scope:Script) for the NS Credential"
+                $NSCredential = $tempCredential
+                $validCredential = $true
+                Write-Verbose "Valid Credential found"
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
+        }
+        try {
+            Write-Verbose "Test if Variable NSCredential (Scope:Script) is a valid credential"
+            $tempCredential = Get-Variable -Name NSCredential -Scope Global -ValueOnly -ErrorAction SilentlyContinue
+            if (-not ($null -eq $tempCredential) -and `
+                    $validCredential -eq $false -and `
+                    -Not [String]::IsNullOrEmpty($tempCredential) -and `
+                    -Not ($tempCredential -eq [System.Management.Automation.PSCredential]::Empty) -and `
+                    $tempCredential -is [System.Management.Automation.PSCredential] -and `
+                    -Not [String]::IsNullOrEmpty($($tempCredential.Username)) ) {
+                Write-Verbose "Get (if it exists) the NSCredential variable (Scope:Global) for the NS Credential"
+                $NSCredential = $tempCredential
+                $validCredential = $true
+                Write-Verbose "Valid Credential found"
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
+        }
+        Write-Verbose "Credential: $($NSCredential.Username)"
+        #If no ManagementURL is available then request a URL
+        try {
+            if (($null -eq $ManagementURL) -or ([String]::IsNullOrEmpty($ManagementURL))) {
+                $ManagementURL = $(Read-Host -Prompt "Enter the NetScaler Management URL$($MessageText)")
+                Save-NSLogonParams -ManagementURL $ManagementURL
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
+        }
+        try {
+            #Test if NSCredential is a valid credential
+            if ($validCredential -eq $false) {
+                Write-Verbose "No valid credential was found, requesting credential."
+                $NSCredential = (Get-Credential -Message "Enter username and password for the NetScaler`r`nE.g. nsroot / P@ssw0rd" -UserName $Username)
+                Save-NSLogonParams -Credential $NSCredential
+            }
+        } catch {
+            Write-Verbose "Caught an (non blocking) error, $($_.Exception.Message)"
+        }
+        try {
+            $NSSession = Connect-NSNode -ManagementURL $ManagementURL -Credential $NSCredential -PassThru
+        } catch {
+            Write-Error "Caught an error while connecting, $($_.Exception.Message)"
         }
     }
-    if ($PassThru) {
-        return $Script:NSSession
+    if (($null -eq $NSSession) -or `
+        ([String]::IsNullOrEmpty($NSSession)) -or `
+        ([String]::IsNullOrEmpty($(Get-Variable -ErrorAction SilentlyContinue | Where-Object Name -EQ "NSSession")))) {
+        Write-Verbose "Empty Session variable, trying to connect"
+        $NSSession = Connect-NSNode -ManagementURL $(Read-Host -Prompt "Enter the NetScaler Management URL$($MessageText)") -Credential (Get-Credential) -PassThru
     }
+    if (($null -eq $NSSession) -or [String]::IsNullOrEmpty($NSSession) -or (-Not $NSSession.IsConnected)) {
+        throw "Connect to the NetScaler Appliance first!"
+    } else {
+        Save-NSLogonParams -NSSession $NSSession
+        Write-Verbose "Active Session found, returning Session data"
+        Write-Output $NSSession
+    }
+    Write-Verbose "Get-NSSession: Ended"
 }
 
 # SIG # Begin signature block
 # MIIkmgYJKoZIhvcNAQcCoIIkizCCJIcCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDxyWJoUVHg8N+L
-# FMU3dtoco0t2NnF/1w9UZwMzlofdGaCCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBXc8fdEifMEi1O
+# kzAzlNgCL1PrezdArNxXY8asKNSTT6CCHl4wggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -230,29 +362,29 @@ function Disconnect-NSNode {
 # IFJTQSBDb2RlIFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUD
 # BAIBBQCggYQwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMx
 # DAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkq
-# hkiG9w0BCQQxIgQgehTd8FCyNG2qqePtShfUNod1qBiqr55QAOgjiddebC8wDQYJ
-# KoZIhvcNAQEBBQAEggEAWehCVEqEGKTavJB2hxRlfOMTlddox6hXD05VU4SWXZbS
-# gNZMc9J1QwHWXBKX1fSLsOJowVOt1KV0zGvLa9nJABGWbjyF3QjVl0RFPSxFXz5q
-# QDOjZwQGF9T/QI56oy2m6SyQIztx6p+t+FsNa0bZeuQfV3BMfmuc4Dca8LZeqvwm
-# r8MP9eRgEX0lTp84iRCVO82h2zUKzSC9ZXluhNh1g+1yLb+LLj20aYSpkcgFPTb6
-# oprF+xINjfxStsC+nN3/KI/Cwfr6vdZW5k+PSEAxBpcYI1l5/HFCF5m2MxZxbpvB
-# SJe18aMeXfSqj1h0Ua71nxJjKgErA+ONeDljXkJR2KGCA0swggNHBgkqhkiG9w0B
+# hkiG9w0BCQQxIgQg4mTzyqg1IfEY8vIrdPW4sxI944EjLq3536hp1V4T7/4wDQYJ
+# KoZIhvcNAQEBBQAEggEABncpbZAFY/GjhaDFZzGjq7w+V2e+U1Po08dbgGwJ4L2N
+# 2PRCh876BZACfKcL085HjPqTqe0Qt7vpcnFq7QTnZVuCTaESTpV4fhvaf1zRwxg7
+# b+vFi6Ert6YCdPsyWU38DJ9UepQsUysxlD/9slHFgjcOUSmEHWjmAbc7IulUjgRi
+# LWq6vIz4KpMWWqp9/Vs0YJDzmYck7mF3kScxmJtYTfHKZnF0DnVw0eOzb8szJ/wK
+# AQgkZ4mJZpmVW0ROaE/OBWEOVLC1e3s0GdclKw+pb1SAZuFfsPlWP6yDdjwdiZP4
+# ipl3NtR0Ig1dnxer9xP6cZQLxqTKtDneosUkE0H9HqGCA0swggNHBgkqhkiG9w0B
 # CQYxggM4MIIDNAIBATCBkTB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EDlMJeF8oG0nqGXiO9kdItQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMx
-# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMTYyMDU4MTBaMD8GCSqG
-# SIb3DQEJBDEyBDB/7o+HW7z2MqzgrzhklQHgh3l4OBeafH5o/NN4EFUdVuNI80LU
-# 195FGKfNdlSjSrcwDQYJKoZIhvcNAQEBBQAEggIAgl+pqDB5PW13eKA7F5BrGaQG
-# GOU/upSgq4P9wNqQ1nOJcX4fwLbvlLPiJrHGo5W93nEpA6k3PQj7zbCx3BAnPJHq
-# FPgn2BcQAhckC26qqro3TNLk4VFx7jrMOyc4+Gvj1nac8pCetjfKFV+lKLxPzyox
-# iSBhE3jhPfqnNY+dpi8YWozOatz6k/8uCBk3J5BoOvseaDGZsJj8nwq/KRrhJAIO
-# Jv1e9ftyIN3AP0bslIw9gmdQqTUJJdHpKrI4fQ9oaAihRoHM5++6hTHgGfdtnj9D
-# SqyoENIkiSZjCJDCXdmw5QPI3YaXfw+rtmNLkfaL3SjqE+3440P5rOl8+jfuUQst
-# sxPn0uuFg5vgUf/n8OfjvOw7WnbtNSd7FguuHWZ8Mg1qLhNaOnaeobkYJHxGW63h
-# TiB6Jeu9TBc66Lm1avLwmDs0qODcAciPwBUBwoWQqCThA9xYoURFN2LVETKrolVZ
-# M7SuSo7O+XgzG+XZxnVOYdsg30Mx9Gy+JZlT7WJal/KsxJJSmjgj2wXkBjRl7jVw
-# sPBUH0NGf0664wWv6kmrBbjn3xQm/1+5Dkr9kurw6Y2p/FUxjpEEo39erHwadc/P
-# otscjf/4f9U1RS66eN44kjhVvCwTuqfji2mneaWRk7CVXAxZ+fIRMt5Y4PcFmzQp
-# EXGiJI+6odGi3cZI9Bk=
+# CwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNDAxMzEyMTI4MzBaMD8GCSqG
+# SIb3DQEJBDEyBDA13PhnjRrol2ETl+pHfhhrU+SCn8Ig+oAqFZYrrz3VI3AatnNY
+# 9v5BUUp9IW/kM60wDQYJKoZIhvcNAQEBBQAEggIATW6cyWOEM6LSG/1M8fwTcqSW
+# ckyeP+PmO80biDWQztL3hyd0BTfrRgqYmegT2NyyfJ7HKB2Jbk5HsiYZxgcj89qr
+# LBfoFSpCrh0D8kk55+utlZr7aTkaWJdQrdl3cFa77JZGPBOJP3e369xPwVpZ2c0Z
+# LLz3UmzoK354ktZIgcskzwyjDiqzZPkBu/kELXXZxEK4EKEQV3hhDsUldF/QS+OB
+# 9cHfFubgIlE/zW3FIxGCcc7OUP+eR0Xv4fKcq91kKlVOfuKRmZKqiRjqZKe8aABF
+# /Xd3D+7rsrk0zokZiNVI6V52E+szLKDWA+JXi/srLYpe04vOjDsuwQCK/Ydj86dK
+# xhJhU7cyb4pPcCRCdeNXBPPupbbR/77/incwZHIC1cgOQzKTYkbGr0URh3zC1LJC
+# tP025lycV6+WpPddsUJI2sb5rit495FqYKUhk4bUflFNtRSzFwNBnoDsUhY27FSQ
+# o+vdPAcjK9zDf68G1q43JhR3Y184BNpnIFPB2pq4TuxZ3hcBttCYLzOvF3m/nnR7
+# 4V7YoYLqQGj5KMabKd5LNeiZneeiyjLL1P6N6oDVgHpyKfPGjPxB2vbHq0TQHjXt
+# spfgb0F5QWt8BrgGFG73zhQ8BOHCyDyd84Ma2/EBtyLd+X3cexXp1ADUNzXEaEy1
+# VyMHM40qb07MOXfu3fs=
 # SIG # End signature block

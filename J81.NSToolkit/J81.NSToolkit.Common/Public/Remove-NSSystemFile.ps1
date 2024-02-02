@@ -1,60 +1,64 @@
-[CmdletBinding()]
-Param()
+<#
+    .SYNOPSIS
+    Removes system files or directories using the NSSession module.
+    .DESCRIPTION
+    The Remove-NSSystemFile function is used to remove system files or directories. It utilizes the NSSession module to perform the removal operation.
+    .PARAMETER Filelocation
+    The location of the file or directory to be removed. This parameter is mandatory.
+    .PARAMETER Filename
+    The name of the file to be removed. If specified, only the file with the matching name will be removed.
+    .PARAMETER Recurse
+    Indicates whether to remove files and directories recursively. If this switch parameter is specified, the function will remove all files and directories within the specified location.
+    .EXAMPLE
+    Remove-NSSystemFile -Filelocation "/var/nsinstall/build-13.0-87.9_nc_64" -Recurse
+    Removes all files and directories within the "/var/nsinstall/build-13.0-87.9_nc_64" location recursively.
+    .EXAMPLE
+    Remove-NSSystemFile -Filelocation "/var/nsinstall" -Filename "build-13.1-50.23_nc_64.tgz"
+    Removes the file named "build-13.1-50.23_nc_64.tgz" within the "/var/nsinstall" location.
+#>
 
-# Get public and private function definition files.
-$Public = @( Get-ChildItem -Path $PSScriptRoot\Public\*.ps1 -ErrorAction Ignore -Recurse)
-$Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction Ignore -Recurse )
+function Remove-NSSystemFile {
+    [CmdletBinding()]
+    param (
+        [parameter(DontShow)]
+        [Object]$NSSession = (Get-NSSession),
 
-# Dot source the files
-Foreach ($import in @($Public + $Private)) {
-    Try { 
-        $import | Unblock-File
-        #. $import.fullname 
-        
-        $ExecutionContext.InvokeCommand.InvokeScript(
-            $false, 
-            (
-                [scriptblock]::Create(
-                    [io.file]::ReadAllText(
-                        $import.fullname,
-                        [Text.Encoding]::UTF8
-                    )
-                    
-                )
-            ), 
-            $null, 
-            $null
-        )
-    } Catch {
-        Write-Error -Message "Failed to import function $($import.fullname): $_"
+        [Parameter(Mandatory)]
+        [string]$Filelocation,
+
+        [Parameter()]
+        [string]$Filename,
+
+        [Parameter()]
+        [Switch]$Recurse
+    )
+    $getParams = @{
+        NSSession    = $NSSession
+        Filelocation = $Filelocation
+    }
+    if ($PSBoundParameters.ContainsKey('Filename')) {
+        $getParams.Add('Filename', $Filename)
+    }
+    $items = Invoke-NSGetSystemfile @getParams | Expand-ADCResult
+    ForEach ($item in $items) {
+        if ($item.filemode -like "directory" -and $Recurse) {
+            $directory = '{0}/{1}' -f $($item.filelocation), $($item.filename)
+            Write-Verbose "Delete directory content $($directory)"
+            Remove-NSSystemFile -NSSession $NSSession -Filelocation $directory -Recurse
+            Write-Verbose "Delete directory $($directory)"
+            $result = Invoke-NSDeleteSystemfile -NSSession $NSSession -Filelocation $item.filelocation -Filename $item.filename
+        } elseif ($item.filemode -notlike "directory") {
+            Write-Verbose "Delete file $($item.filelocation)/$($item.filename)"
+            $result = Invoke-NSDeleteSystemfile -NSSession $NSSession -Filelocation $item.filelocation -Filename $item.filename
+        }
     }
 }
-
-# setup some module wide variables
-#$LogLevel = "Info"
-$Script:NSSession = [PSObject]@{
-    ManagementURL     = $null
-    WebSession        = $null
-    Username          = $null
-    Version           = "UNKNOWN";
-    IsConnected       = $false
-    SessionExpiration = $null
-}
-$Script:NSLastSession = [PSObject]@{
-    ManagementURL     = $null
-    WebSession        = $null
-    Username          = $null
-    Version           = "UNKNOWN";
-    IsConnected       = $false
-    SessionExpiration = $null
-}
-$Script:NoConsoleOutput = $false
 
 # SIG # Begin signature block
 # MIITYgYJKoZIhvcNAQcCoIITUzCCE08CAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAIR9g4FdVNjntb
-# PB+5xKw+1rc0bHHJ6ray/Z4cKyeuZ6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDVzHD9pCxS/oIA
+# LONzhjmeKyVz+mlVyzkE0roETmafi6CCEHUwggTzMIID26ADAgECAhAsJ03zZBC0
 # i/247uUvWN5TMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # ExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoT
 # D1NlY3RpZ28gTGltaXRlZDEkMCIGA1UEAxMbU2VjdGlnbyBSU0EgQ29kZSBTaWdu
@@ -148,11 +152,11 @@ $Script:NoConsoleOutput = $false
 # IFNpZ25pbmcgQ0ECECwnTfNkELSL/bju5S9Y3lMwDQYJYIZIAWUDBAIBBQCggYQw
 # GAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGC
 # NwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQx
-# IgQgbgARn+hYRjWTXcQ8pO15XcIXeCjHQ3UyLhiebLvVTqMwDQYJKoZIhvcNAQEB
-# BQAEggEAQ4dwCJWRT0xZh+6dDYF7yXAd78oBbWQxKYEuDfWzhnjvnHLIhm62+1vq
-# ktoHlcbuwnunU94o89Y1Qb3Vst8L7UNCvmeRxMBr+BO1aOGAWiLa6UC9tR2m1oU9
-# qIO9slXAa8Pg3USiCNMd90QIcuD/xZZrwgQXmh51Pu2OZrd+qkswdwuo29vxRexE
-# TvaYaWvyQGUu9RuPzZR5Sbw1AcUcJMHV0gUJ4PE/LC4gX45sld5XxdqNgbtNycDg
-# ahvmAFFW02bHGui+APWZ1L1SxctpLUWU8QFuarKfJX8msH///ko2o0HiqoDB2cdQ
-# FqXfkntE0yL7z8NjuryGu1Vt1XQQLQ==
+# IgQglok+5GzmCr0YPMj1jsam86383wEM+ZGPAy88XoJHzHEwDQYJKoZIhvcNAQEB
+# BQAEggEAm/SLYmIqAkv9xl8uO/ID5U/nS2H1j9KJIlb3ycf8vQ+VkKkdDIG+cZU8
+# h+PSP4/VHlwAXrGZXAZ+2FElCQPcIryUQNar7LR2g/KVZKMzeXpKU4e8QnzhzCuV
+# 2YJXL6n+Ow31Y16uRvvclp6pnvgq6o62LFkwqlomTXwkC/vb79Xy+yde7u0uQaAc
+# n/2ZEbPGbPWK1Uhv30trhUd2hdJbv35C0wKO63rbC79MU7yoWUTEZx2VPWgkyYSB
+# OHTODKjuHANpMfjTf5zArRbr3vgmD4t6f6YLVkzrdeYHgA4dYHlcrRGnhz+uIodV
+# 09QdFWBIie+si3FKiLwEFPgnj4K33g==
 # SIG # End signature block
