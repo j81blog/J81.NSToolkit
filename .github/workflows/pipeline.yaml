@@ -1,4 +1,4 @@
-name: AppVentiX PowerShell Module
+name: J81.NSToolkit PowerShell Module
 on:
   push:
     branches:
