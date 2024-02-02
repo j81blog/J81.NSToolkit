@@ -12,7 +12,7 @@
     # RootModule        = ''
 
     # Version number of this module.
-    ModuleVersion     = '2402.222.1'
+    ModuleVersion     = '2402.222.2'
 
     # Supported PSEditions
     # CompatiblePSEditions = @()
@@ -67,9 +67,9 @@
 
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
     NestedModules     = @(
-        'J81.NSToolkit.Common'
-        'J81.NSToolkit.Stats'
-        'J81.NSToolkit.Config'
+        '.\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1',
+        '.\J81.NSToolkit.Stats.\J81.NSToolkit.Stats.psd1',
+        '.\J81.NSToolkit.Config.\J81.NSToolkit.Config.psd1'
     )
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
