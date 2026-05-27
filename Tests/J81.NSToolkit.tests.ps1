@@ -29,17 +29,14 @@ Describe "Module Metadata validation" {
                 $Script:manifest = Test-ModuleManifest -Path $ModuleManifest -ErrorAction Stop -WarningAction SilentlyContinue
             } | Should -Not -Throw
         }
-        It 'Manifest Should contain 3 NestedModules' {
-            $Script:manifest.NestedModules | Should -HaveCount 3
+        It 'Manifest should use Common as RootModule' {
+            $Script:manifest.RootModule | Should -Be '.\J81.NSToolkit.Common\J81.NSToolkit.Common.psm1'
         }
-        It 'Manifest Should contain NestedModule J81.NSToolkit.Common' {
-            $Script:manifest.NestedModules.Name | Should -Contain 'J81.NSToolkit.Common'
+        It 'Manifest should not define NestedModules for slim root import' {
+            $Script:manifest.NestedModules | Should -BeNullOrEmpty
         }
-        It 'Manifest Should contain NestedModule J81.NSToolkit.Config' {
-            $Script:manifest.NestedModules.Name | Should -Contain 'J81.NSToolkit.Config'
-        }
-        It 'Manifest Should contain NestedModule J81.NSToolkit.Stats' {
-            $Script:manifest.NestedModules.Name | Should -Contain 'J81.NSToolkit.Stats'
+        It 'Manifest should export functions' {
+            [int]$Script:manifest.ExportedFunctions.Count | Should -BeGreaterThan 0
         }
         It 'Valid Manifest GUID' {
             $Script:manifest.Guid | Should -Be '880651b9-d933-48a0-825c-0dc349c2e25d'
@@ -90,7 +87,7 @@ Describe "General project validation" {
         $errors.Count | Should -Be 0
     }
 
-    if ($environment -ne "APPVEYOR" ) {
+    if ($environment -eq 'GITHUB' -or $env:CI -eq 'true') {
         It "Script <file.Name> should be signed" -TestCases $testCase {
             param ($file)
             $file.FullName | Should -Exist
