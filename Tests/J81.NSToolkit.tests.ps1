@@ -29,11 +29,12 @@ Describe "Module Metadata validation" {
                 $Script:manifest = Test-ModuleManifest -Path $ModuleManifest -ErrorAction Stop -WarningAction SilentlyContinue
             } | Should -Not -Throw
         }
-        It 'Manifest should use Common as RootModule' {
-            $Script:manifest.RootModule | Should -Be '.\J81.NSToolkit.Common\J81.NSToolkit.Common.psm1'
+        It 'Manifest should use wrapper RootModule' {
+            $Script:manifest.RootModule | Should -Be 'J81.NSToolkit.psm1'
         }
-        It 'Manifest should not define NestedModules for slim root import' {
-            $Script:manifest.NestedModules | Should -BeNullOrEmpty
+        It 'Manifest should include Common as NestedModule' {
+            $Script:manifest.NestedModules | Should -HaveCount 1
+            $Script:manifest.NestedModules.Name | Should -Contain 'J81.NSToolkit.Common'
         }
         It 'Manifest should export functions' {
             [int]$Script:manifest.ExportedFunctions.Count | Should -BeGreaterThan 0
@@ -55,7 +56,11 @@ Describe "Nested modules validation" {
             } | Should -Not -Throw -ErrorAction Stop
         }
         It "Datafile should have multiple functions" {
-            [Int]($Script:dataFile.FunctionsToExport.Count) | Should -BeGreaterThan 0 -ErrorAction Stop
+            if ($_.BaseName -eq 'J81.NSToolkit.Bundle') {
+                [Int]($Script:dataFile.FunctionsToExport.Count) | Should -Be 0 -ErrorAction Stop
+            } else {
+                [Int]($Script:dataFile.FunctionsToExport.Count) | Should -BeGreaterThan 0 -ErrorAction Stop
+            }
         }
         It "Datafile should have a valid version" {
             $Script:dataFile.ModuleVersion -as [Version] | Should -Not -BeNullOrEmpty -ErrorAction Stop

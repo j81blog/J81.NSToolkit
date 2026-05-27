@@ -1,7 +1,13 @@
 [CmdletBinding()]
 Param()
 
-$classPath = Join-Path -Path $(Split-Path -Path $PSScriptRoot -Parent) -ChildPath 'J81.NSToolkit.Common\Internal\Classes.psm1'
+$classPathCandidates = @()
+$commonModule = Get-Module -Name 'J81.NSToolkit.Common' -ListAvailable | Sort-Object -Property Version -Descending | Select-Object -First 1
+if ($commonModule) {
+    $classPathCandidates += (Join-Path -Path $commonModule.ModuleBase -ChildPath 'Internal\Classes.psm1')
+}
+$classPathCandidates += (Join-Path -Path $(Split-Path -Path $PSScriptRoot -Parent) -ChildPath 'J81.NSToolkit.Common\Internal\Classes.psm1')
+$classPath = $classPathCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (Test-Path $classPath) {
     #this is to get the class definitions shared between modules
     $useBlock = [ScriptBlock]::Create("using module '$classPath'")

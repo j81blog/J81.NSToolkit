@@ -38,9 +38,13 @@ jobs:
       - name: Validate manifests
         shell: pwsh
         run: |
+          $repoModulePath = (Resolve-Path .).Path
+          $env:PSModulePath = "$repoModulePath;$env:PSModulePath"
           Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.psd1 | Out-Null
+          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1 | Out-Null
           Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Config\J81.NSToolkit.Config.psd1 | Out-Null
           Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Stats\J81.NSToolkit.Stats.psd1 | Out-Null
+          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Bundle\J81.NSToolkit.Bundle.psd1 | Out-Null
 
       - name: Publish to target gallery
         shell: pwsh
@@ -49,6 +53,8 @@ jobs:
           PSTESTGALLERY_API_KEY: ${{ secrets.PSGALLERYTEST }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $repoModulePath = (Resolve-Path .).Path
+          $env:PSModulePath = "$repoModulePath;$env:PSModulePath"
 
           if ('${{ github.ref }}' -eq 'refs/heads/main') {
             $repository = 'PSGallery'
@@ -75,9 +81,11 @@ jobs:
           }
 
           $modules = @(
+            @{ Name = 'J81.NSToolkit.Common'; Path = '.\J81.NSToolkit\J81.NSToolkit.Common'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1' },
             @{ Name = 'J81.NSToolkit'; Path = '.\J81.NSToolkit'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.psd1' },
             @{ Name = 'J81.NSToolkit.Config'; Path = '.\J81.NSToolkit\J81.NSToolkit.Config'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Config\J81.NSToolkit.Config.psd1' },
-            @{ Name = 'J81.NSToolkit.Stats'; Path = '.\J81.NSToolkit\J81.NSToolkit.Stats'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Stats\J81.NSToolkit.Stats.psd1' }
+            @{ Name = 'J81.NSToolkit.Stats'; Path = '.\J81.NSToolkit\J81.NSToolkit.Stats'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Stats\J81.NSToolkit.Stats.psd1' },
+            @{ Name = 'J81.NSToolkit.Bundle'; Path = '.\J81.NSToolkit\J81.NSToolkit.Bundle'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Bundle\J81.NSToolkit.Bundle.psd1' }
           )
 
           foreach ($module in $modules) {

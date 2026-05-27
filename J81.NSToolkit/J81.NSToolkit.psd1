@@ -9,7 +9,7 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule        = '.\J81.NSToolkit.Common\J81.NSToolkit.Common.psm1'
+    RootModule        = 'J81.NSToolkit.psm1'
 
     # Version number of this module.
     ModuleVersion     = '2402.222.2'
@@ -66,7 +66,9 @@
     # FormatsToProcess = @()
 
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-    # NestedModules = @()
+    NestedModules     = @(
+        '.\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1'
+    )
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
@@ -79,6 +81,8 @@
         'Invoke-NSGetSystemFileDirectories',
         'Invoke-NSNitroApi',
         'Invoke-RequestCertificate',
+        'Import-NSToolkitConfigModule',
+        'Import-NSToolkitStatsModule',
         'New-NSRequestCertificateUser',
         'Remove-NSSystemFile',
         'Save-NSLogonParams'
