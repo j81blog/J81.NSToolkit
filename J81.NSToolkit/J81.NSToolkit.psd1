@@ -76,7 +76,9 @@
     'Get-NSSession', 
     'Invoke-NSCleanCertKeyFiles', 
     'Invoke-NSGetSystemFileDirectories', 
-    'Invoke-NSNitroApi'
+    'Invoke-NSNitroApi', 
+    'Invoke-RequestCertificate',
+    'New-NSRequestCertificateUser'
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
     CmdletsToExport   = @()
@@ -332,3 +334,4 @@
 # o4CUpQa7bl4qnKbtLF7/nhohLCDtE6oL4HsdRXO1+eTXoK17cD5+6bJCqTCFMttY
 # +b8fXKrghMxdhq4dZBM=
 # SIG # End signature block
+

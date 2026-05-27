@@ -33,6 +33,10 @@ function Invoke-NSNitroApi {
     .PARAMETER OnErrorAction
         Use this parameter to set the onerror status for nitro request. Applicable only for bulk requests.
         Acceptable values: "EXIT", "CONTINUE", "ROLLBACK", default to "EXIT"
+    .PARAMETER Headers
+        Additional HTTP headers to send with the NITRO request.
+    .PARAMETER RawResponse
+        Return response metadata, headers, URI, and raw content in addition to the parsed NITRO response.
     .EXAMPLE
         PS C:\>Invoke-NSNitroApi -NSSession $NSSession -Method GET -Type nsip
     .EXAMPLE
@@ -53,7 +57,7 @@ function Invoke-NSNitroApi {
         [PSObject]$NSSession,
 
         [Parameter(Mandatory)]
-        [ValidateSet('ADD', 'APPLY', 'CHANGE', 'CHECK', 'CLEAR', 'CONVERT', 'COUNT', 'CREATE', 'DELETE', 'DIFF', 'DISABLE', 'ENABLE', 'EXPIRE', 'EXPORT', 'FLUSH', 'FORCE', 'GET', 'GET (ALL)', 'IMPORT', 'INSTALL', 'INIT', 'JOIN', 'KILL', 'LINK', 'PING', 'PING6', 'REBOOT', 'RELEASE', 'RENAME', 'RENUMBER', 'RESET', 'RESTART', 'RESTORE', 'SAVE', 'SEND', 'SHUTDOWN', 'SIGN', 'SWITCH', 'SYNC', 'TRACEROUTE', 'TRACEROUTE6', 'UNLINK', 'UNLOCK', 'UNSET', 'UNSIGN', 'UPDATE')]
+        [ValidateSet('ADD', 'POST', 'PUT', 'APPLY', 'CHANGE', 'CHECK', 'CLEAR', 'CONVERT', 'COUNT', 'CREATE', 'DELETE', 'DIFF', 'DISABLE', 'ENABLE', 'EXPIRE', 'EXPORT', 'FLUSH', 'FORCE', 'GET', 'GET (ALL)', 'IMPORT', 'INSTALL', 'INIT', 'JOIN', 'KILL', 'LINK', 'PING', 'PING6', 'REBOOT', 'RELEASE', 'RENAME', 'RENUMBER', 'RESET', 'RESTART', 'RESTORE', 'SAVE', 'SEND', 'SHUTDOWN', 'SIGN', 'SWITCH', 'SYNC', 'TRACEROUTE', 'TRACEROUTE6', 'UNLINK', 'UNLOCK', 'UNSET', 'UNSIGN', 'UPDATE')]
         [string]$Method,
 
         [Parameter(Mandatory)]
@@ -85,6 +89,10 @@ function Invoke-NSNitroApi {
         [ValidatePattern('^nitro\/v[0-9]\/(config|stat)$')]
         [string]$NitroPath = "nitro/v1/config",
 
+        [hashtable]$Headers = @{ },
+
+        [switch]$RawResponse,
+
         [Parameter(DontShow, ValueFromRemainingArguments)]
         [Object]$RemainingArguments
     )
@@ -94,50 +102,35 @@ function Invoke-NSNitroApi {
     $uri = "$($NSSession.ManagementURL.AbsoluteUri)$($NitroPath)/$Type"
 
     if (-not ([string]::IsNullOrEmpty($Resource))) {
-        $uri += "/$Resource"
+        $uri += "/$([System.Uri]::EscapeDataString($Resource))"
     }
-    if ($Method -ne 'GET') {
-        if (-not ([string]::IsNullOrEmpty($Action))) {
-            $uri += "?action=$Action"
+
+    $queryParts = [System.Collections.Generic.List[string]]::new()
+    if (($Method -ne 'GET') -and -not ([string]::IsNullOrEmpty($Action))) {
+        $queryParts.Add("action=$([System.Uri]::EscapeDataString($Action))")
+    }
+    if ($Arguments.Count -gt 0) {
+        $argsList = foreach ($arg in $Arguments.GetEnumerator()) {
+            "$($arg.Name):$([System.Uri]::EscapeDataString([string]$arg.Value))"
         }
-        if ($Arguments.Count -gt 0) {
-            $queryPresent = $true
-            if ($uri -like '*?action*') {
-                $uri += '&args='
-            } else {
-                $uri += '?args='
-            }
-            $argsList = @()
-            foreach ($arg in $Arguments.GetEnumerator()) {
-                $argsList += "$($arg.Name):$([System.Uri]::EscapeDataString($arg.Value))"
-            }
-            $uri += $argsList -join ','
+        $queryParts.Add("args=$($argsList -join ',')")
+    }
+    if (($Method -eq 'GET') -and ($Filters.Count -gt 0)) {
+        $filterList = foreach ($filter in $Filters.GetEnumerator()) {
+            "$($filter.Name):$([System.Uri]::EscapeDataString([string]$filter.Value))"
         }
-    } else {
-        $queryPresent = $false
-        if ($Arguments.Count -gt 0) {
-            $queryPresent = $true
-            $uri += '?args='
-            $argsList = @()
-            foreach ($arg in $Arguments.GetEnumerator()) {
-                $argsList += "$($arg.Name):$([System.Uri]::EscapeDataString($arg.Value))"
-            }
-            $uri += $argsList -join ','
+        $queryParts.Add("filter=$($filterList -join ',')")
+    }
+    if (($Method -eq 'GET') -and ($Query.Count -gt 0)) {
+        foreach ($item in $Query.GetEnumerator()) {
+            $queryParts.Add("$($item.Name)=$([System.Uri]::EscapeDataString([string]$item.Value))")
         }
-        if ($Filters.Count -gt 0) {
-            $uri += if ($queryPresent) { '&filter=' } else { '?filter=' }
-            $filterList = @()
-            foreach ($filter in $Filters.GetEnumerator()) {
-                $filterList += "$($filter.Name):$([System.Uri]::EscapeDataString($filter.Value))"
-            }
-            $uri += $filterList -join ','
-        }
-        if ($Query.Count -gt 0) {
-            $uri += $Query.GetEnumerator() | ForEach-Object { "?$($_.Name)=$([System.Uri]::EscapeDataString($_.Value))" }
-        }
-        if ($Summary) {
-            $uri += "?view=$([System.Uri]::EscapeDataString("summary"))"
-        }
+    }
+    if (($Method -eq 'GET') -and $Summary) {
+        $queryParts.Add("view=$([System.Uri]::EscapeDataString('summary'))")
+    }
+    if ($queryParts.Count -gt 0) {
+        $uri += "?$($queryParts -join '&')"
     }
     Write-Verbose -Message "URI: $uri"
     $jsonPayload = $null
@@ -154,8 +147,20 @@ function Invoke-NSNitroApi {
         message   = "Done"
         severity  = "NONE"
     }
+    $requestHeaders = @{ }
+    foreach ($header in $Headers.GetEnumerator()) {
+        $requestHeaders[$header.Name] = $header.Value
+    }
+    if ($GetWarning -and -not $requestHeaders.ContainsKey('X-NITRO-WARNING')) {
+        $requestHeaders['X-NITRO-WARNING'] = 'YES'
+    }
+    if (($Method -ne 'GET') -and -not $requestHeaders.ContainsKey('X-NITRO-ONERROR')) {
+        $requestHeaders['X-NITRO-ONERROR'] = $OnErrorAction
+    }
+
     $webResult = $null
     $restError = $null
+    $rawContent = $null
     try {
         $restError = @()
         $restParams = @{
@@ -166,30 +171,51 @@ function Invoke-NSNitroApi {
             ErrorVariable = 'restError'
             Verbose       = $false
         }
+        if ($requestHeaders.Count -gt 0) {
+            $restParams.Add('Headers', $requestHeaders)
+        }
         if ($Method -ne 'GET') {
             $restParams.Add('Body', $jsonPayload)
         }
         if ((-Not ('PSEdition' -notin $PSVersionTable.Keys -or $PSVersionTable.PSEdition -eq 'Desktop')) -and ($uri -match "^https://.*?$")) {
             $restParams.Add("SkipCertificateCheck", $true)
         }
+        if ((('PSEdition' -notin $PSVersionTable.Keys) -or $PSVersionTable.PSEdition -eq 'Desktop') -and -not $restParams.ContainsKey('UseBasicParsing')) {
+            $restParams.Add('UseBasicParsing', $true)
+        }
         #$response = Invoke-RestMethod @restParams
         $webResult = Invoke-WebRequest @restParams
-        if (-Not [String]::IsNullOrEmpty($($webResult.Content))) {
-            $response = ConvertFrom-Json $([String]::new($webResult.Content))
+        $rawContent = $webResult.Content
+        if (-Not [String]::IsNullOrEmpty($rawContent)) {
+            $response = ConvertFrom-Json $([String]::new($rawContent))
         }
     } catch [Exception] {
+        $webResult = $_.Exception.Response
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            $rawContent = $_.ErrorDetails.Message
+        } elseif ($restError -and $restError[0] -and $restError[0].ErrorDetails -and $restError[0].ErrorDetails.Message) {
+            $rawContent = $restError[0].ErrorDetails.Message
+        } elseif ($restError -and $restError.Message) {
+            $rawContent = $restError.Message
+        } else {
+            $rawContent = $_.Exception.Message
+        }
         try {
-            $response = $restError.Message | ConvertFrom-Json -ErrorAction Stop
+            $response = $rawContent | ConvertFrom-Json -ErrorAction Stop
         } catch {
-            $response = $restError.Message
+            $response = [PSCustomObject]@{
+                errorcode = -1
+                message   = $rawContent
+                severity  = 'ERROR'
+            }
         }
-        if ($restError.InnerException.Message) {
-            $response | Add-Member -MemberType NoteProperty -Name ErrorMessage -Value $restError.InnerException.Message-ErrorAction SilentlyContinue
+        if ($restError -and $restError.InnerException -and $restError.InnerException.Message) {
+            $response | Add-Member -MemberType NoteProperty -Name ErrorMessage -Value $restError.InnerException.Message -ErrorAction SilentlyContinue
         }
-        if ($Type -eq 'reboot' -and $restError[0].Message -eq 'The underlying connection was closed: The connection wasclosed unexpectedly.') {
+        if ($Type -eq 'reboot' -and $restError -and $restError[0].Message -eq 'The underlying connection was closed: The connection wasclosed unexpectedly.') {
             Write-Warning -Message 'Connection closed due to reboot'
         } else {
-            if ([String]::IsNullOrEmpty($($restError.Message)) -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
+            if ([String]::IsNullOrEmpty($($rawContent)) -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
                 Throw $_.Exception.Message
             }
         }
@@ -203,10 +229,40 @@ function Invoke-NSNitroApi {
     if ($webResult.StatusDescription) {
         $response | Add-Member -MemberType NoteProperty -Name StatusDescription -Value $webResult.StatusDescription -ErrorAction SilentlyContinue
     }
-    Write-Output $response
+    if ($rawContent) {
+        $response | Add-Member -MemberType NoteProperty -Name RawContent -Value $rawContent -ErrorAction SilentlyContinue
+    }
+    if ($uri) {
+        $response | Add-Member -MemberType NoteProperty -Name Uri -Value $uri -ErrorAction SilentlyContinue
+    }
+    if ($Method) {
+        $response | Add-Member -MemberType NoteProperty -Name Method -Value $Method -ErrorAction SilentlyContinue
+    }
+
     if (($response.severity -eq 'ERROR') -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
         Write-Verbose "ERROR: $($response | Format-List -Property * | Out-String)"
-        Throw "[$($response.errorcode)] $($response.message)"
+        $exception = [System.InvalidOperationException]::new("[$($response.errorcode)] $($response.message)")
+        $errorRecord = [System.Management.Automation.ErrorRecord]::new($exception, "NitroApiError$($response.errorcode)", [System.Management.Automation.ErrorCategory]::InvalidOperation, $response)
+        $PSCmdlet.ThrowTerminatingError($errorRecord)
+    }
+    if (($response.severity -eq 'WARNING') -and -not ($ErrorActionPreference -eq "SilentlyContinue")) {
+        Write-Warning -Message "NITRO warning [$($response.errorcode)] $($response.message)"
+    }
+
+    if ($RawResponse) {
+        Write-Output ([PSCustomObject]@{
+                Response          = $response
+                StatusCode        = $response.StatusCode
+                StatusDescription = $response.StatusDescription
+                Headers           = if ($webResult) { $webResult.Headers } else { $null }
+                Uri               = $uri
+                Method            = $Method
+                RequestHeaders    = $requestHeaders
+                RequestBody       = $jsonPayload
+                RawContent        = $rawContent
+            })
+    } else {
+        Write-Output $response
     }
 }
 
@@ -408,3 +464,7 @@ function Invoke-NSNitroApi {
 # 8Oqi4o/PtwyUIbY9VU05hEAd0Rk3PS22WZvsK2qc6GcdbUpjV7jx/y+ea7/5K4IR
 # vDtA+SJDp3vgJTGc8LA=
 # SIG # End signature block
+
+
+
+

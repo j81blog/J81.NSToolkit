@@ -1,19 +1,6 @@
 [CmdletBinding()]
 Param()
 
-#Set the minimum version of the J81.NSToolkit module that is required.
-$minimumVersion = '2311.2021'
-
-#Check if the J81.NSToolkit module is installed.
-if ( -Not ( Get-Module -Name J81.NSToolkit -ListAvailable | Where-Object Version -EQ $minimumVersion ) ) {
-    Write-Error -Message '"J81.NSToolkit" module is not installed. Please install it from the PowerShell Gallery.' -ErrorAction Stop
-}
-
-#Import the J81.NSToolkit module.
-if ( -Not ( Get-Module -Name J81.NSToolkit | Where-Object { $_.Version -ge [version]$minimumVersion } ) ) {
-    Import-Module -Name J81.NSToolkit -MinimumVersion $minimumVersion -Force -ErrorAction Stop
-}
-
 # Get public and private function definition files.
 $Public = @( Get-ChildItem -Path $PSScriptRoot\Public\*.ps1 -ErrorAction Ignore -Recurse)
 $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction Ignore -Recurse )
@@ -21,23 +8,7 @@ $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction Ignor
 # Dot source the files
 Foreach ($import in @($Public + $Private)) {
     Try { 
-        $import | Unblock-File
-        #. $import.fullname 
-        
-        $ExecutionContext.InvokeCommand.InvokeScript(
-            $false, 
-            (
-                [scriptblock]::Create(
-                    [io.file]::ReadAllText(
-                        $import.fullname,
-                        [Text.Encoding]::UTF8
-                    )
-                    
-                )
-            ), 
-            $null, 
-            $null
-        )
+        . $import.FullName
     } Catch {
         Write-Error -Message "Failed to import function $($import.fullname): $_"
     }

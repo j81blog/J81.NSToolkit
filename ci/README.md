@@ -1,3 +1,3 @@
-# AppVeyor Contiuous Integration scripts
+# CI scripts
 
-The scripts are run by AppVeyor when an update is pushed to this repository.
+The scripts in this folder are used by the GitHub Actions workflow.

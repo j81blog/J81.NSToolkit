@@ -8,23 +8,7 @@ $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction Ignor
 # Dot source the files
 Foreach ($import in @($Public + $Private)) {
     Try { 
-        $import | Unblock-File
-        #. $import.fullname 
-        
-        $ExecutionContext.InvokeCommand.InvokeScript(
-            $false, 
-            (
-                [scriptblock]::Create(
-                    [io.file]::ReadAllText(
-                        $import.fullname,
-                        [Text.Encoding]::UTF8
-                    )
-                    
-                )
-            ), 
-            $null, 
-            $null
-        )
+        . $import.FullName
     } Catch {
         Write-Error -Message "Failed to import function $($import.fullname): $_"
     }
