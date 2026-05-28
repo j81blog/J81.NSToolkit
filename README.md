@@ -9,6 +9,28 @@ NetScaler PowerShell Toolkit, Modules for managing a NetScaler from PowerShell
 
 [Wiki](https://github.com/j81blog/J81.NSToolkit/wiki)
 
+## Installation
+
+Install core module (fast/default):
+
+```powershell
+Install-Module J81.NSToolkit -Scope CurrentUser -Repository PSGallery
+```
+
+Install full bundle (core + config + stats):
+
+```powershell
+Install-Module J81.NSToolkit.Bundle -Scope CurrentUser -Repository PSGallery
+```
+
+## Update
+
+Update all installed J81 modules:
+
+```powershell
+Get-InstalledModule J81.NSToolkit* | Update-Module -Force
+```
+
 [github-actions-badge]: https://github.com/j81blog/J81.NSToolkit/actions/workflows/pipeline.yaml/badge.svg
 [github-actions]: https://github.com/j81blog/J81.NSToolkit/actions/workflows/pipeline.yaml
 [psgallery-badge]: https://img.shields.io/powershellgallery/dt/J81.NSToolKit.svg?style=flat-square

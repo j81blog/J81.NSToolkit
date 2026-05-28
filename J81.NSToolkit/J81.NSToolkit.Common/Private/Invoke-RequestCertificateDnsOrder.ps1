@@ -20,6 +20,9 @@ function Invoke-RequestCertificateDnsOrder {
     .PARAMETER AcmeOptions
         Normalized ACME options hashtable.
 
+    .PARAMETER Force
+        Forces Posh-ACME to renew the DNS validated certificate.
+
     .NOTES
         Function  : Invoke-RequestCertificateDnsOrder
         Author    : John Billekens
@@ -31,7 +34,8 @@ function Invoke-RequestCertificateDnsOrder {
         [Parameter(Mandatory)][object]$Request,
         [Parameter(Mandatory)][string[]]$Domains,
         [Parameter(Mandatory)][securestring]$PfxSecret,
-        [Parameter(Mandatory)][hashtable]$AcmeOptions
+        [Parameter(Mandatory)][hashtable]$AcmeOptions,
+        [switch]$Force
     )
 
     $plugin = if ($Request.DNSPlugin) { $Request.DNSPlugin } elseif ($AcmeOptions.DNSPlugin) { $AcmeOptions.DNSPlugin } else { 'Manual' }
@@ -46,7 +50,7 @@ function Invoke-RequestCertificateDnsOrder {
         DnsSleep        = if ($Request.DNSWaitTime) { [int]$Request.DNSWaitTime } else { [int]$AcmeOptions.DNSWaitTime }
         PfxPassSecure   = $PfxSecret
         FriendlyName    = $Request.FriendlyName
-        Force           = [bool]$Request.ForceCertRenew
+        Force           = ([bool]$Force -or [bool]$Request.ForceCertRenew)
         ErrorAction     = 'Stop'
     }
     if ($Request.KeyLength) { $params.CertKeyLength = [string]$Request.KeyLength }

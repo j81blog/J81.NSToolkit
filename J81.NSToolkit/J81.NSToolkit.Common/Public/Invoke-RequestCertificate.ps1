@@ -86,6 +86,7 @@ function Invoke-RequestCertificate {
         [Parameter(ParameterSetName = 'LECertificatesHTTP')][Parameter(ParameterSetName = 'LECertificatesDNS')][Parameter(ParameterSetName = 'AutoRun', Mandatory = $true)][String]$ConfigFile = $null,
         [Parameter(ParameterSetName = 'AutoRun', Mandatory = $true)][Switch]$AutoRun,
         [Parameter(ParameterSetName = 'LECertificatesHTTP')][Parameter(ParameterSetName = 'LECertificatesDNS')][Parameter(ParameterSetName = 'AutoRun')][Alias('Force')][Switch]$ForceCertRenew,
+        [Parameter(ParameterSetName = 'LECertificatesHTTP')][Parameter(ParameterSetName = 'LECertificatesDNS')][Parameter(ParameterSetName = 'AutoRun')][Switch]$StopOnError,
         [Parameter(ParameterSetName = 'LECertificatesHTTP')][Parameter(ParameterSetName = 'LECertificatesDNS')][Switch]$CleanExpiredCertsOnDisk,
         [Parameter(ParameterSetName = 'CleanExpiredCerts', Mandatory = $true)][Switch]$CleanAllExpiredCertsOnDisk,
         [Parameter(ParameterSetName = 'CleanExpiredCerts')][Parameter(ParameterSetName = 'LECertificatesHTTP')][Parameter(ParameterSetName = 'LECertificatesDNS')][Int16]$CleanExpiredCertsOnDiskDays = 100,
@@ -142,7 +143,7 @@ function Invoke-RequestCertificate {
             if (-not ($settings.PSObject.Properties.Name -contains $name)) { $settings | Add-Member -NotePropertyName $name -NotePropertyValue (Get-Variable $name -ValueOnly) }
         }
         if (-not ($settings.PSObject.Properties.Name -contains 'SMTPCredential')) { $settings | Add-Member -NotePropertyName SMTPCredential -NotePropertyValue $SMTPCredential }
-        if (($settings.SMTPCredential -eq [pscredential]::Empty -or -not $settings.SMTPCredential) -and $settings.SMTPCredentialUsername -and $settings.SMTPCredentialPassword) {
+        if (($settings.SMTPCredential -eq [pscredential]::Empty -or -not $settings.SMTPCredential -or $settings.SMTPCredential -isnot [pscredential]) -and $settings.SMTPCredentialUsername -and $settings.SMTPCredentialPassword) {
             $settings.SMTPCredential = [pscredential]::new($settings.SMTPCredentialUsername, (ConvertFrom-RequestCertificateLegacySecret -Object $settings.SMTPCredentialPassword))
         }
         if ($LogFile -eq '<DEFAULT>' -or [string]::IsNullOrWhiteSpace($LogFile)) { $LogFile = Join-Path $scriptRoot 'Invoke-RequestCertificate.log' }
@@ -157,6 +158,23 @@ function Invoke-RequestCertificate {
         if (-not $ManagementURL) { $ManagementURL = $settings.ManagementURL }
         $ManagementURL = ([string]$ManagementURL).TrimEnd('/') + '/'
         $settings.ManagementURL = $ManagementURL
+        $configChanged = $false
+
+        if ($AutoRun) {
+            foreach ($propertyName in 'ADCCredentialPassword', 'SMTPCredentialPassword') {
+                if (($settings.PSObject.Properties.Name -contains $propertyName) -and $settings.$propertyName -and ($settings.$propertyName.PSObject.Properties.Name -contains 'IsEncrypted') -and -not $settings.$propertyName.IsEncrypted) {
+                    $settings.$propertyName = ConvertTo-RequestCertificateLegacySecret -Object $settings.$propertyName
+                    $configChanged = $true
+                }
+            }
+
+            foreach ($request in @($requests)) {
+                if (($request.PSObject.Properties.Name -contains 'PfxPassword') -and $request.PfxPassword -and ($request.PfxPassword.PSObject.Properties.Name -contains 'IsEncrypted') -and -not $request.PfxPassword.IsEncrypted) {
+                    $request.PfxPassword = ConvertTo-RequestCertificateLegacySecret -Object $request.PfxPassword
+                    $configChanged = $true
+                }
+            }
+        }
 
         $serverName = if ($AcmeDirectoryUrl) {
             $AcmeDirectoryUrl
@@ -212,7 +230,7 @@ function Invoke-RequestCertificate {
             return New-NSRequestCertificateUser @userParams
         }
         if ($CleanADC) {
-            return Remove-RequestCertificateNetScalerHttpValidationConfig -NSSession $nsSession -Settings $settings -CsVipName $CsVipName
+            return Remove-RequestCertificateNetScalerHttpValidationConfig -NSSession $nsSession -Settings $settings -CsVipName $CsVipName -RemoveCertificateFiles
         }
         if ($RemoveTestCertificates) {
             return Remove-RequestCertificateNetScalerTestCertificate -NSSession $nsSession -DeleteFromDevice
@@ -225,10 +243,17 @@ function Invoke-RequestCertificate {
 
         $results = @()
         $allErrors = @()
+        $httpValidationConfigInitialized = $false
+        $httpValidationCleanupCsVipNames = @()
+        try {
         foreach ($request in $requests) {
+            $challengeBindings = @()
+            $requestVipEnabled = $false
+            try {
             Set-RequestCertificateNoteProperty -InputObject $request -Name ValidationMethod -Value $(if ($request.ValidationMethod) { ([string]$request.ValidationMethod).ToLowerInvariant() } else { 'http' })
             if ($request.CN -like '*`**' -or $request.SANs -like '*`**') { $request.ValidationMethod = 'dns' }
             Set-RequestCertificateNoteProperty -InputObject $request -Name UseLbVip -Value ([bool]$request.UseLbVip)
+            $effectiveForceCertRenew = [bool]$ForceCertRenew -or [bool]$request.ForceCertRenew
             if ($request.ValidationMethod -eq 'http' -and -not $request.CsVipName -and -not $request.UseLbVip) { throw "CsVipName is required for HTTP validation unless UseLbVip is set. CN=$($request.CN)" }
             $domains = @($request.CN)
             if ($request.SANs) { $domains += ([string]$request.SANs -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
@@ -236,8 +261,16 @@ function Invoke-RequestCertificate {
             if (-not $request.FriendlyName) { Set-RequestCertificateNoteProperty -InputObject $request -Name FriendlyName -Value $request.CN }
             if (-not $request.CertDir) { Set-RequestCertificateNoteProperty -InputObject $request -Name CertDir -Value $CertDir }
             if (-not (Test-Path -LiteralPath $request.CertDir)) { New-Item -ItemType Directory -Path $request.CertDir -Force | Out-Null }
+            $renewalDecision = Test-RequestCertificateRenewalRequired -Request $request -Force:$effectiveForceCertRenew
+            if (-not $renewalDecision.ShouldRenew) {
+                Write-RequestCertificateLog Info 'CheckCertRenewal' "$($request.CN) skipped. $($renewalDecision.Reason)"
+                $results += [pscustomobject]@{ CN = $request.CN; Domains = $domains; AcmeServer = $serverName; Production = [bool]$Production; ValidationMethod = $request.ValidationMethod; CertKeyName = $request.CertKeyNameToUpdate; PfxPath = $null; Thumbprint = $null; NotAfter = $renewalDecision.CertExpires; Status = 'Skipped'; Reason = $renewalDecision.Reason; LogFile = $script:RequestCertificateLogFile }
+                continue
+            }
+            Write-RequestCertificateLog Info 'CheckCertRenewal' "$($request.CN) renewal required. $($renewalDecision.Reason)"
             if ($request.ValidationMethod -eq 'http' -and $request.EnableVipBefore) {
                 foreach ($csVip in @($request.CsVipName)) { try { Invoke-NSEnableCsvserver -NSSession $nsSession -Name $csVip | Out-Null } catch { Write-RequestCertificateLog Warning 'NetScaler' "Could not enable CS VIP $csVip`: $($_.Exception.Message)" } }
+                $requestVipEnabled = $true
             }
             $pfxSecret = if ($request.PfxPassword) { ConvertFrom-RequestCertificateLegacySecret -Object $request.PfxPassword } elseif ($PfxPassword) { ConvertFrom-RequestCertificateLegacySecret -Object $PfxPassword } else { ConvertTo-SecureString (New-RequestCertificatePassword) -AsPlainText -Force }
             Write-RequestCertificateLog Info 'ACME' "Ensuring ACME account for $($request.EmailAddress)."
@@ -245,8 +278,6 @@ function Invoke-RequestCertificate {
             $accountKeyLength = if ([string]$request.KeyLength -match '^\d+$') { [int]$request.KeyLength } else { 2048 }
             if (-not $account) { $account = New-PAAccount -Contact $request.EmailAddress -KeyLength $accountKeyLength -AcceptTOS -Force -ErrorAction Stop }
             Set-PAAccount -ID $account.ID -Force | Out-Null
-            $challengeBindings = @()
-            try {
                 $cert = $null
                 if ($request.ValidationMethod -eq 'dns') {
                     $acmeOptions = @{
@@ -264,19 +295,23 @@ function Invoke-RequestCertificate {
                     if ($request.AlternateDNSValidationDomain) {
                         $acmeOptions.DnsAlias = @($domains | ForEach-Object { $request.AlternateDNSValidationDomain })
                     }
-                    $cert = Invoke-RequestCertificateDnsOrder -Request $request -Domains $domains -PfxSecret $pfxSecret -AcmeOptions $acmeOptions
+                    $cert = Invoke-RequestCertificateDnsOrder -Request $request -Domains $domains -PfxSecret $pfxSecret -AcmeOptions $acmeOptions -Force:$effectiveForceCertRenew
                     if (-not $cert) { $cert = Get-PACertificate -MainDomain $request.CN -ErrorAction Stop }
                 } else {
                     Write-RequestCertificateLog Info 'ACME' "Creating ACME HTTP order for $($domains -join ', ')."
-                    $orderParams = @{ Domain = $domains; AlwaysNewKey = ([bool]$AlwaysNewKey -or [bool]$request.ForceCertRenew); KeyLength = [string]$request.KeyLength; Force = $true; FriendlyName = $request.FriendlyName; PfxPassSecure = $pfxSecret }
+                    $orderParams = @{ Domain = $domains; AlwaysNewKey = ([bool]$AlwaysNewKey -or $effectiveForceCertRenew); KeyLength = [string]$request.KeyLength; Force = $true; FriendlyName = $request.FriendlyName; PfxPassSecure = $pfxSecret }
                     if ($UseModernPfxEncryption) { $orderParams.UseModernPfxEncryption = $true }
                     if ($PreferredChain) { $orderParams.PreferredChain = $PreferredChain }
                     if ($Profile) { $orderParams.Profile = $Profile }
                     if ($LifetimeDays) { $orderParams.LifetimeDays = $LifetimeDays }
                     if ($ValidationTimeout) { $orderParams.ValidationTimeout = $ValidationTimeout }
-                    if ($request.ForceCertRenew) { try { Remove-PAOrder -MainDomain $request.CN -Force -ErrorAction SilentlyContinue | Out-Null } catch {} }
+                    if ($effectiveForceCertRenew) { try { Remove-PAOrder -MainDomain $request.CN -Force -ErrorAction SilentlyContinue | Out-Null } catch {} }
                     $order = New-PAOrder @orderParams -ErrorAction Stop
                     Initialize-RequestCertificateHttpValidationConfig -NSSession $nsSession -Settings $settings -Request $request
+                    if (-not $request.UseLbVip) {
+                        $httpValidationConfigInitialized = $true
+                        $httpValidationCleanupCsVipNames = @($httpValidationCleanupCsVipNames + @($request.CsVipName) | Where-Object { $_ } | Select-Object -Unique)
+                    }
                     $challengeBindings = Publish-RequestCertificateHttpChallenge -NSSession $nsSession -Settings $settings -Order $order -Account $account
                     Wait-RequestCertificateAuthorization -MainDomain $request.CN -TimeoutSeconds $ValidationTimeout | Out-Null
                     Write-RequestCertificateLog Info 'ACME' "Finalizing ACME order for $($request.CN)."
@@ -288,6 +323,21 @@ function Invoke-RequestCertificate {
                 }
                 $deploy = Install-RequestCertificateNetScalerCertificate -NSSession $nsSession -Settings $settings -Request $request -Certificate $cert -PfxSecret $pfxSecret -IsProduction:$Production
                 $x509 = if ($cert.CertFile -and (Test-Path $cert.CertFile)) { [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($cert.CertFile) } else { $null }
+                try {
+                    $completedOrder = Get-PAOrder -MainDomain $request.CN -Refresh -ErrorAction Stop
+                    if ($completedOrder.CertExpires) {
+                        Set-RequestCertificateNoteProperty -InputObject $request -Name CertExpires -Value $completedOrder.CertExpires
+                        $configChanged = $true
+                    }
+                    if ($completedOrder.RenewAfter) {
+                        Set-RequestCertificateNoteProperty -InputObject $request -Name RenewAfter -Value $completedOrder.RenewAfter
+                        $configChanged = $true
+                    }
+                    Set-RequestCertificateNoteProperty -InputObject $request -Name CurrentCertIsProduction -Value ([bool]$Production)
+                    $configChanged = $true
+                } catch {
+                    Write-RequestCertificateLog Debug 'CheckCertRenewal' "Could not update renewal metadata for $($request.CN): $($_.Exception.Message)"
+                }
                 if ($request.UpdateGlobalVPNCertBinding) {
                     Update-RequestCertificateGlobalVpnBinding -NSSession $nsSession -OldCertKeyName $request.CertKeyNameToUpdate -NewCertKeyName $deploy.CertKeyName -IncludeCA:$request.GlobalVPNCertBindingIncludeCA -CrlCheck $request.GlobalVPNCertBindingCrlCheck -OcspCheck $request.GlobalVPNCertBindingOcspCheck | Out-Null
                 }
@@ -315,16 +365,34 @@ function Invoke-RequestCertificate {
             } catch {
                 Write-RequestCertificateLog Error 'Result' "Failed certificate request for $($request.CN): $($_.Exception.Message)"
                 $allErrors += $_
-                throw
+                $results += [pscustomobject]@{ CN = $request.CN; Domains = $domains; AcmeServer = $serverName; Production = [bool]$Production; ValidationMethod = $request.ValidationMethod; CertKeyName = $request.CertKeyNameToUpdate; PfxPath = $null; Thumbprint = $null; NotAfter = $null; Status = 'Failed'; Reason = $_.Exception.Message; LogFile = $script:RequestCertificateLogFile }
+                if ($StopOnError) { throw }
             } finally {
                 Remove-RequestCertificateHttpChallengeBinding -NSSession $nsSession -ChallengeBindings $challengeBindings -Settings $settings
-                if ($request.ValidationMethod -eq 'http' -and $request.DisableVipAfter) { foreach ($csVip in @($request.CsVipName)) { try { Invoke-NSDisableCsvserver -NSSession $nsSession -Name $csVip | Out-Null } catch { Write-RequestCertificateLog Warning 'NetScaler' "Could not disable CS VIP $csVip`: $($_.Exception.Message)" } } }
+                if ($requestVipEnabled -and $request.ValidationMethod -eq 'http' -and $request.DisableVipAfter) { foreach ($csVip in @($request.CsVipName)) { try { Invoke-NSDisableCsvserver -NSSession $nsSession -Name $csVip | Out-Null } catch { Write-RequestCertificateLog Warning 'NetScaler' "Could not disable CS VIP $csVip`: $($_.Exception.Message)" } } }
+            }
+        }
+        } finally {
+            if ($httpValidationConfigInitialized) {
+                Write-RequestCertificateLog Info 'Cleanup' 'Removing reusable NetScaler HTTP validation objects.'
+                Remove-RequestCertificateNetScalerHttpValidationConfig -NSSession $nsSession -Settings $settings -CsVipName $httpValidationCleanupCsVipNames | Out-Null
             }
         }
         if ($settings.SendMail) {
             $subjectStatus = if ($allErrors.Count -gt 0) { 'failed' } else { 'completed' }
             $body = ($results | Format-List | Out-String)
             Send-RequestCertificateMail -Settings $settings -Subject "Invoke-RequestCertificate $subjectStatus" -Body $body -LogFile $script:RequestCertificateLogFile
+        }
+        if ($AutoRun -and $configChanged -and $ConfigFile) {
+            try {
+                Write-RequestCertificateLog Info 'ConfigFile' "Saving updated renewal metadata to '$ConfigFile'."
+                if ($config.settings.PSObject.Properties.Name -contains 'SMTPCredential') {
+                    $config.settings.PSObject.Properties.Remove('SMTPCredential')
+                }
+                $config | ConvertTo-Json -Depth 20 | Out-File -LiteralPath $ConfigFile -Encoding Unicode -Force
+            } catch {
+                Write-RequestCertificateLog Warning 'ConfigFile' "Could not save updated renewal metadata to '$ConfigFile': $($_.Exception.Message)"
+            }
         }
         $results
     }

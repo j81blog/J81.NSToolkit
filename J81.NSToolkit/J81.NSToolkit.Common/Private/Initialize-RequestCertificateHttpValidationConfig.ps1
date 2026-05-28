@@ -83,7 +83,12 @@ function Initialize-RequestCertificateHttpValidationConfig {
         }
 
         foreach ($csVip in @($Request.CsVipName)) {
-            Invoke-NSAddCsvserverCspolicyBinding -NSSession $NSSession -Name $csVip -Policyname $Settings.CspName -Priority ([double]$Settings.CsVipBinding) -Gotopriorityexpression 'END' | Out-Null
+            try {
+                Invoke-NSAddCsvserverCspolicyBinding -NSSession $NSSession -Name $csVip -Policyname $Settings.CspName -Priority ([double]$Settings.CsVipBinding) -Gotopriorityexpression 'END' | Out-Null
+            } catch {
+                if ($_.Exception.Message -notmatch 'already bound|already exists|Resource already exists|\[273\]|\[246\]') { throw }
+                Write-RequestCertificateLog Debug 'NetScaler' "CS policy '$($Settings.CspName)' is already bound to '$csVip'."
+            }
         }
     }
 }

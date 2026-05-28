@@ -1,285 +1,336 @@
 # Invoke-RequestCertificate Migration TODO
 
-Date: 2026-05-25
+Date: 2026-05-27
 
 ## Goal
 
-Migrate `GenLeCertForNS.ps1` into `J81.NSToolkit` as `Invoke-RequestCertificate` while preserving backward-compatible parameters and support-focused log output. The module version should eventually support multiple ACME providers through Posh-ACME and should use toolkit NetScaler functions instead of embedded REST helpers where practical.
+Migrate `C:\Users\JohnBillekens\GitHub\GenLeCertForNS\GenLeCertForNS.ps1` into `J81.NSToolkit` as `Invoke-RequestCertificate` while preserving backward-compatible parameters, config-file compatibility, and support-focused logging.
 
-## Current State
+The migrated function must keep the original HTTP validation behavior through Citrix NetScaler/ADC, support DNS validation through Posh-ACME plugins, and eventually support other ACME certificate providers beyond Let's Encrypt.
 
-Implemented files:
+## Current Summary
 
-- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\Public\Invoke-RequestCertificate.ps1`
+The main HTTP staging path is working.
+
+Validated:
+
+- AutoRun config loading.
+- ACME staging server only: `LE_STAGE`.
+- HTTP-01 validation through NetScaler responder objects.
+- Certificate upload/update to NetScaler.
+- Renewal skip based on legacy `RenewAfter`.
+- Forced renewal with `-ForceCertRenew`.
+- Per-request responder object cleanup.
+- End-of-batch reusable HTTP validation object cleanup.
+- Config update of `CertExpires`, `RenewAfter`, and `CurrentCertIsProduction`.
+- Config encryption of legacy password objects with `IsEncrypted = false`.
+- Mail sending with Gmail on port `587` and SSL enabled.
+- Root module export surface after the updated toolkit layout.
+
+Not validated yet:
+
+- Production ACME.
+- DNS provider live API validation.
+- `UseLbVip` beyond smoke coverage.
+- Full partition iteration.
+- IIS update on a real target.
+- Global VPN binding update on a real target after the latest changes.
+
+## Active Module Layout
+
+Primary files:
+
 - `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psd1`
-- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\Public\Invoke-NSNitroApi.ps1`
-- Working source copy: `C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\Invoke-RequestCertificate.ps1`
+- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psm1`
+- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.Common\Public\Invoke-RequestCertificate.ps1`
+- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.Common\Public\New-NSRequestCertificateUser.ps1`
+- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.Common\Public\Invoke-NSNitroApi.ps1`
+- `C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.Common\Private\*.ps1`
 
-Validated path:
+Important private helpers:
 
-- ACME server: `LE_STAGE`
-- Validation method: `http`
-- NetScaler target: `https://10.254.0.10`
-- Config file: `C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\config_domains_test.json`
-- Wrapper-compatible command:
+- `Assert-RequestCertificateNSResource.ps1`
+- `ConvertFrom-RequestCertificateLegacySecret.ps1`
+- `ConvertTo-RequestCertificateLegacySecret.ps1`
+- `ConvertTo-RequestCertificateHashtable.ps1`
+- `Copy-RequestCertificateNetScalerFile.ps1`
+- `Initialize-RequestCertificateHttpValidationConfig.ps1`
+- `Install-RequestCertificateNetScalerCertificate.ps1`
+- `Invoke-RequestCertificateDnsOrder.ps1`
+- `Invoke-RequestCertificateNitro.ps1`
+- `Invoke-RequestCertificatePostScript.ps1`
+- `New-RequestCertificatePassword.ps1`
+- `Publish-RequestCertificateHttpChallenge.ps1`
+- `Remove-RequestCertificateExpiredDiskCertificate.ps1`
+- `Remove-RequestCertificateHttpChallengeBinding.ps1`
+- `Remove-RequestCertificateNetScalerHttpValidationConfig.ps1`
+- `Remove-RequestCertificateNetScalerTestCertificate.ps1`
+- `Send-RequestCertificateMail.ps1`
+- `Set-RequestCertificateNoteProperty.ps1`
+- `Test-RequestCertificateRenewalRequired.ps1`
+- `Update-RequestCertificateGlobalVpnBinding.ps1`
+- `Update-RequestCertificateIisBinding.ps1`
+- `Wait-RequestCertificateAuthorization.ps1`
+- `Wait-RequestCertificateOrderFinal.ps1`
+- `Write-RequestCertificateLog.ps1`
+
+## Current Git State
+
+Known modified files in `C:\Users\JohnBillekens\GitHub\J81.NSToolkit`:
+
+- `Invoke-RequestCertificate-Migration-TODO.md`
+- `J81.NSToolkit/J81.NSToolkit.psm1`
+- `J81.NSToolkit/J81.NSToolkit.Common/Public/Invoke-RequestCertificate.ps1`
+- `J81.NSToolkit/J81.NSToolkit.Common/Private/Initialize-RequestCertificateHttpValidationConfig.ps1`
+- `J81.NSToolkit/J81.NSToolkit.Common/Private/Invoke-RequestCertificateDnsOrder.ps1`
+- `J81.NSToolkit/J81.NSToolkit.Common/Private/Remove-RequestCertificateNetScalerHttpValidationConfig.ps1`
+- `README.md`
+
+Known untracked files:
+
+- `J81.NSToolkit/J81.NSToolkit.Common/Private/ConvertTo-RequestCertificateLegacySecret.ps1`
+- `J81.NSToolkit/J81.NSToolkit.Common/Private/Test-RequestCertificateRenewalRequired.ps1`
+
+Do not revert unrelated user changes. `README.md` was already modified in the working tree and should be reviewed before editing further.
+
+## Test Environment
+
+NetScaler/ADC:
+
+- Management URL: `https://10.254.0.10`
+- Credentials: `C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\Credential.xml`
+- Test config: `C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\config_domains_test.json`
+- Test domain: `365.j81.nl`
+- Test CS VIP: `cs_j81.nl_http`
+- Certkey updated in staging tests: `TST-T-portal.j81.nl`
+
+Never use `-Production` unless explicitly approved.
+
+Use direct manifest import for the current nested module layout:
 
 ```powershell
-$env:PSModulePath = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit;' + $env:PSModulePath
-Remove-Module J81.NSToolkit,J81.NSToolkit.Config,Posh-ACME -Force -ErrorAction SilentlyContinue
-Import-Module J81.NSToolkit -Force
+$Manifest = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psd1'
+Remove-Module J81.NSToolkit,J81.NSToolkit.Common,J81.NSToolkit.Config,J81.NSToolkit.Stats,Posh-ACME -Force -ErrorAction SilentlyContinue
+Import-Module $Manifest -Force
+Get-Command Invoke-RequestCertificate,Invoke-NSNitroApi,Connect-NSNode
+```
+
+## Latest Validated Commands
+
+No-force staging run, expected to skip renewal and send mail:
+
+```powershell
+$Manifest = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psd1'
+Remove-Module J81.NSToolkit,J81.NSToolkit.Common,J81.NSToolkit.Config,J81.NSToolkit.Stats,Posh-ACME -Force -ErrorAction SilentlyContinue
+Import-Module $Manifest -Force
+Invoke-RequestCertificate -AutoRun -ConfigFile 'C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\config_domains_test.json' -NoConsoleOutput
+```
+
+Latest no-force result:
+
+- `CN`: `365.j81.nl`
+- `Status`: `Skipped`
+- `Reason`: `Certificate can be replaced after 2026-07-25 21:09:36.`
+- `Mail`: `Completion mail sent to john@j81.nl.`
+- `LogFile`: `C:\Users\JohnBillekens\stack\Let's Encrypt\GenLE-Log.txt`
+
+Forced staging renewal command:
+
+```powershell
+$Manifest = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psd1'
+Remove-Module J81.NSToolkit,J81.NSToolkit.Common,J81.NSToolkit.Config,J81.NSToolkit.Stats,Posh-ACME -Force -ErrorAction SilentlyContinue
+Import-Module $Manifest -Force
 Invoke-RequestCertificate -AutoRun -ConfigFile 'C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\config_domains_test.json' -ForceCertRenew -NoConsoleOutput
 ```
 
-Last successful staging result:
+Latest forced staging certificate result:
 
 - `CN`: `365.j81.nl`
+- `AcmeServer`: `LE_STAGE`
+- `Production`: `False`
+- `ValidationMethod`: `http`
 - `CertKeyName`: `TST-T-portal.j81.nl`
-- `PfxPath`: `C:\Users\JohnBillekens\AppData\Local\Posh-ACME\LE_STAGE\295810323\365.j81.nl\fullchain.pfx`
-- `Thumbprint`: `56AFDE5E8A504F61A509AE0558685AD86CA313E1`
-- `NotAfter`: `2026-08-23 20:58:05`
-- `LogFile`: `C:\Users\JohnBillekens\stack\Let's Encrypt\GenLE-Log.txt`
+- `PfxPath`: `C:\Users\JohnBillekens\AppData\Local\Posh-ACME\LE_STAGE\296367263\365.j81.nl\fullchain.pfx`
+- `Thumbprint`: `12BEABD74403331E4E627B526B0C3C31F00EA5B9`
+- `NotAfter`: `2026-08-25 20:25:31`
 
-Known supporting changes:
+## Latest NetScaler Cleanup Validation
 
-- `Invoke-NSNitroApi` ValidateSet was expanded to allow `POST` and `PUT`, because generated `J81.NSToolkit.Config` functions already use these methods.
-- `Invoke-NSNitroApi` adds `UseBasicParsing` for Windows PowerShell/Desktop edition to avoid the `Invoke-WebRequest` script execution risk prompt.
-- `Invoke-NSNitroApi` now supports `-Headers`, NITRO warning/onerror headers, safer query-string construction, terminating NITRO error records, warning emission for NITRO warnings, response metadata note properties, and `-RawResponse`.
-- `Invoke-RequestCertificate` is exported from `J81.NSToolkit.psd1`.
-- Private helper functions were moved to the module `Private` folder.
-- Update 2026-05-25 21:10: inline helpers were moved into `J81.NSToolkit\Private`, and the same staging HTTP test passed.
-- Update 2026-05-25 21:29: low-risk NetScaler calls were switched to generated `J81.NSToolkit.Config` functions and the same staging HTTP test passed. Remaining generic Nitro usage is limited to fallback unknown-resource handling and `sslcertkey?action=update` for cert/key replacement.
-- Update 2026-05-25 21:49: certkey replacement was switched from generic `Invoke-RequestCertificateNitro` to generated `Invoke-NSChangeSslcertkey`. The same staging HTTP test passed. Private helper functions now have comment-based help blocks.
-- Update 2026-05-25 21:59: `Invoke-NSNitroApi` now adds `UseBasicParsing` under Windows PowerShell/Desktop edition. The staging HTTP command completed under `powershell.exe` without the `Invoke-WebRequest` script execution warning.
-- Update 2026-05-25 22:12: `Invoke-NSNitroApi -RawResponse` was validated with `GET hanode` against `https://10.254.0.10` and returned HTTP 200 with headers and raw content. The staging HTTP certificate request passed again with thumbprint `CC12AD1B4237AC9EB3B1294D99A165F68F5804A7`.
-- Update 2026-05-25 22:58: implemented DNS validation via Posh-ACME `New-PACertificate`, `CleanADC`, `RemoveTestCertificates`, request log header/rotation/masking, per-request disk cleanup, mail hook, post-script hook, guarded IIS update, global VPN binding update, ACME advanced options (`UseModernPfxEncryption`, `PreferredChain`, `Profile`, `DnsAlias`, `ValidationTimeout`, `LifetimeDays`, `AlwaysNewKey`), uploaded PFX cleanup, and basic `RemovePrevious`. Existing HTTP staging flow passed after `CleanADC` removed the temporary objects and the flow recreated them. Latest staging thumbprint: `B49EF898244390C2BF8E7B5B98865B3A5D4B7FC5`.
-- Update 2026-05-25 23:22: tested `Invoke-NSAddLbvserver` for non-addressable validation vServers. `Ipv46='0.0.0.0'` with no `Port`, and no `Ipv46`/no `Port`, both created `0.0.0.0:0`; `Port=$null` failed parameter validation. `Assert-RequestCertificateNSResource` now uses generated `Invoke-NSAddLbvserver` with `Ipv46='0.0.0.0'` and omits `Port` for this case. `CleanADC` plus staging HTTP recreation passed. Latest staging thumbprint: `2AA699B2810D69A579AFB0CFB65CAC5AB6991734`.
-- Update 2026-05-26: added public `New-NSRequestCertificateUser` for the former `CreateUserPermissions` / `CreateApiUser` bootstrap flow. `Invoke-RequestCertificate` now bridges the legacy switches to the new function. The function creates/updates the three legacy command policies, optionally creates/updates the system user, binds policies with priorities 10/20/30, supports `-WhatIf`, `-PassThru`, `-SaveADCConfig`, `-Partitions`, DNS/VPN permission options, and optional binding pruning. Generated `systemcmdpolicy` functions reject legacy hyphenated policy names, so the function uses generated wrappers when names pass validation and generic NITRO only for command-policy operations that need legacy hyphenated names. `-WhatIf` validation against `https://10.254.0.10` succeeded without creating objects.
+After the forced staging run, these objects were verified absent:
 
-## Important Constraints
+- `rsp_letsencrypt_101`
+- `rsa_letsencrypt_101`
+- `csp_letsencrypt`
+- `csa_letsencrypt`
+- `svc_letsencrypt_cert_dummy`
+- `lb_letsencrypt_cert`
 
-- Do not use `-Production` until explicitly approved.
-- Preserve compatibility with legacy config files and wrappers.
-- Preserve diagnostic log usefulness for user support.
-- Code signatures are expected to be invalid after edits; re-signing is deferred.
-- Alias `GenLeCertForNS` is deferred.
-- DNS validation migration is deferred until HTTP validation is stable.
-- The `J81.NSToolkit` worktree had unrelated existing changes during this work. Do not revert unrelated files.
+Current cleanup model:
 
-## Migration Tasks
+- Responder challenge action/policy/binding objects are removed per request in the per-request `finally` block.
+- Reusable HTTP validation objects are cleaned once after the batch in an outer `finally`.
+- Explicit `-CleanADC` also removes known uploaded validation PFX files when called manually.
+- Normal end-of-batch cleanup does not delete uploaded certificate files by default.
 
-### 1. Move Inline Helpers To `Private` - Completed 2026-05-25
+## Latest Mail And Credential Status
 
-Created private functions under:
+Mail is working with:
 
-`C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\Private`
+- SMTP server: `smtp.gmail.com`
+- SMTP port: `587`
+- `SMTPUseSSL`: `True`
+- Credential source: `SMTPCredentialUsername` plus `SMTPCredentialPassword`
 
-The module loader already dot-sources `Private\*.ps1`, so no loader change should be needed.
+Credential behavior:
 
-Implemented private function split:
+- Runtime JSON `SMTPCredential` objects are ignored and removed before config save.
+- `SMTPCredentialPassword` nodes with `IsEncrypted = false` are rewritten encrypted.
+- `ADCCredentialPassword` and per-request `PfxPassword` nodes with `IsEncrypted = false` are also rewritten encrypted.
+- Config save uses the legacy JSON object shape:
 
-- `Write-RequestCertificateLog.ps1`
-  - From current `Write-RCLog`.
-  - Preserve timestamp, component, severity, `-NoConsoleOutput`, and log level behavior.
-  - Consider adding sensitive-word masking from legacy `Write-ToLogFile`.
-- `ConvertFrom-RequestCertificateLegacySecret.ps1`
-  - From current `ConvertFrom-RCLegacySecret`.
-  - Must continue supporting legacy JSON password objects with `Password` and `IsEncrypted`.
-  - Must continue supporting legacy AES key `(0..15)` data.
-  - Add support for CLIXML credentials as a preferred non-RunAsAdmin path.
-- `New-RequestCertificatePassword.ps1`
-  - From current `New-RCPassword`.
-  - Use `RandomNumberGenerator`.
-- `Set-RequestCertificateNoteProperty.ps1`
-  - From current `Set-RCNoteProperty`.
-  - Needed for compatibility with config files missing newer fields.
-- `Invoke-RequestCertificateNitro.ps1`
-  - From current `Invoke-RCNitro`.
-  - Long-term goal: reduce direct generic Nitro calls by using generated `J81.NSToolkit.Config` functions.
-  - Keep robust error-context messages such as `GET sslcertkey/name failed: [1540] Certificate does not exist`.
-- `Assert-RequestCertificateNSResource.ps1`
-  - From current `Assert-RCExistsOrCreate`.
-  - Should treat known Nitro not-found codes as missing.
-- `Initialize-RequestCertificateHttpValidationConfig.ps1`
-  - From current `Initialize-RCHttpValidationConfig`.
-  - Should use generated functions where possible:
-    - `Invoke-NSEnableNsfeature`
-    - `Invoke-NSAddService`
-    - `Invoke-NSAddLbvserver`
-    - `Invoke-NSAddLbvserverServiceBinding`
-    - `Invoke-NSAddCsaction`
-    - `Invoke-NSUpdateCsaction`
-    - `Invoke-NSAddCspolicy`
-    - `Invoke-NSUpdateCspolicy`
-    - `Invoke-NSAddCsvserverCspolicyBinding`
-- `Publish-RequestCertificateHttpChallenge.ps1`
-  - From current `Publish-RCHttpChallenges`.
-  - Should use generated responder functions where possible:
-    - `Invoke-NSAddResponderaction`
-    - `Invoke-NSAddResponderpolicy`
-    - `Invoke-NSAddLbvserverResponderpolicyBinding`
-- `Remove-RequestCertificateHttpChallenge.ps1`
-  - From current `Remove-RCHttpChallengeBindings`.
-  - Should use generated delete/unbind functions.
-- `Wait-RequestCertificateAuthorization.ps1`
-  - From current `Wait-RCOrderValid`.
-- `Wait-RequestCertificateOrderFinal.ps1`
-  - From current `Wait-RCOrderFinal`.
-- `Copy-RequestCertificateFileToNS.ps1`
-  - From current `Copy-RCFileToNS`.
-  - Keep idempotent replacement of existing `/nsconfig/ssl/` files.
-  - Prefer generated `Invoke-NSAddSystemfile` and `Invoke-NSDeleteSystemfile`.
-- `Install-RequestCertificateOnNS.ps1`
-  - From current `Install-RCCertificateOnNS`.
-  - Prefer generated functions:
-    - `Invoke-NSAddSslcertkey`
-    - `Invoke-NSUpdateSslcertkey`
-    - `Invoke-NSGetSslcertkey`
-    - `Invoke-NSSaveNsconfig` or equivalent generated save function.
+```json
+{
+  "Password": "<encrypted string>",
+  "IsEncrypted": true
+}
+```
 
-Remaining follow-up after extraction:
+## Implemented Behavior
 
-- Add Pester tests for each private helper that does not require a live NetScaler.
-- Continue replacing generic Nitro calls with generated `J81.NSToolkit.Config` functions.
+### HTTP Validation
 
-### 2. Remove Or Reduce RunAsAdmin Requirement
+Implemented and live-tested:
 
-Legacy script has `#Requires -RunAsAdministrator`; the module function currently does not. Keep it that way.
+- NetScaler HTTP-01 challenge responder flow.
+- CS policy/action to route `/.well-known/acme-challenge/` traffic to the validation LB vServer.
+- Non-addressable LB vServer behavior using `0.0.0.0:0`.
+- Per-challenge responder action/policy creation and cleanup.
+- Reusable validation service/LB/CS cleanup after all requests.
+- Optional VIP enable/disable around validation.
+- Idempotent handling of existing validation objects.
 
-Tasks:
-
-- Audit any remaining behavior that assumes admin rights.
-- Avoid local machine certificate store writes unless the user explicitly asks for `-UpdateIIS` or other local deployment.
-- Store cert files in Posh-ACME profile storage or user-writable `CertDir`.
-- Prefer `PSCredential`, CLIXML credentials, SecretManagement, or config file credentials over DPAPI patterns that require the same elevated token.
-- If local deployment requires elevation, detect it only for that specific operation and throw an actionable error instead of requiring the whole certificate request to run as admin.
-- Add a log header field for `RunAsAdmin` as diagnostic info only, not as a requirement.
-
-### 3. Complete Posh-ACME Support - Mostly Completed 2026-05-25
-
-Current implementation is not full Posh-ACME support. It supports a manual HTTP-01 order/finalize/download flow for the validated NetScaler path.
-
-Add public parameters or config fields for these Posh-ACME capabilities:
-
-- ACME server selection:
-  - Existing: `-Production`, `-AcmeDirectoryUrl`, `-CertificateProvider`.
-  - Add short-name validation or mapping for `LE_STAGE`, `LE_PROD`, `ZEROSSL_PROD`, `GOOGLE_PROD`, `GOOGLE_STAGE`, `SSLCOM_RSA`, `SSLCOM_ECC`, `ACTALIS_PROD`, and custom directory URLs.
-- Certificate key type:
-  - Support RSA and ECDSA key lengths, for example `2048`, `3072`, `4096`, `ec-256`, `ec-384`.
-  - Current `KeyLength` validation only permits RSA integer sizes.
-- PFX behavior:
-  - Expose `UseModernPfxEncryption`.
-  - Ensure `PfxPassSecure` is applied before artifact download.
-- Preferred chain:
-  - Expose `PreferredChain`.
-- ACME profiles:
-  - Expose `Profile` if the selected CA supports profiles.
-- ARI / renewal:
-  - Investigate `Submit-Renewal`, renewal windows, and ARI-related properties.
-  - Avoid unconditional `Force`/new-key behavior unless requested.
-- Account behavior:
-  - Preserve multiple account support by email/contact.
-  - Add explicit account selection if needed.
-  - Add `AcceptTOS` behavior/confirmation for production.
-- Plugin behavior:
-  - Support DNS plugins via `Plugin`/`PluginArgs` or legacy `DNSPlugin`/`DNSParams`.
-  - Support per-domain plugin arrays.
-  - Support `DnsAlias`.
-  - Support DNS account challenge features if needed later.
-- External CSR/key:
-  - Add optional CSR/key-file paths once NetScaler private key generation/import behavior is decided.
+### Multiple Certificate Requests
 
 Implemented:
 
-- `CertificateProvider` maps non-production to `LE_STAGE` or `GOOGLE_STAGE`, and production to `LE_PROD`, `ZEROSSL_PROD`, `GOOGLE_PROD`, `SSLCOM_RSA`, or `ACTALIS_PROD`; `AcmeDirectoryUrl` still overrides the mapping.
-- `KeyLength` accepts RSA integer values and `ec-256`, `ec-384`, `ec-521`.
-- `UseModernPfxEncryption`, `PreferredChain`, `Profile`, `DnsAlias`, `ValidationTimeout`, `LifetimeDays`, and `AlwaysNewKey` are exposed and passed to Posh-ACME where applicable.
-- HTTP validation still uses the manual NetScaler responder flow.
-- DNS validation uses Posh-ACME `New-PACertificate`, which handles challenge publish/ack/finalize/download through the selected DNS plugin.
+- AutoRun loads all enabled `certrequests`.
+- Main loop processes all enabled requests.
+- Per-request failures are recorded and the loop continues by default.
+- `-StopOnError` restores fail-fast behavior for callers that require it.
 
-Remaining:
+### Renewal Logic
 
-- External CSR/key-file support is still deferred.
-- DNS provider-specific live validation is still pending user confirmation of a working provider/API.
+Implemented:
 
-### 4. Re-implement DNS Validation - Implemented, Provider Live Test Pending
+- `Test-RequestCertificateRenewalRequired` evaluates legacy `CertExpires` and `RenewAfter`.
+- Requests are skipped when `RenewAfter` is in the future.
+- Requests are renewed when forced, when `RenewAfter` is missing/invalid, or when `RenewAfter` has passed.
+- Global `-ForceCertRenew` affects the current run but is not persisted into each config request.
+- Successful orders update `CertExpires`, `RenewAfter`, and `CurrentCertIsProduction` in the AutoRun config.
 
-Current DNS path uses Posh-ACME `New-PACertificate`.
+### DNS Validation
 
-Tasks:
+Implemented but not live provider-tested:
 
-- Re-read legacy DNS flow in `GenLeCertForNS.ps1`.
-- Map legacy `DNSPlugin`, `DNSParams`, `DNSWaitTime`, `AlternateDNSValidationDomain`, `AlternateDNSValidationDomainSkipCheck`, and `UseNetScalerDNS` to Posh-ACME.
-- Test one real DNS provider after the user confirms the API still works.
-- Keep HTTP validation independent of DNS provider configuration.
-- Add tests for config normalization and plugin argument conversion without calling external DNS APIs.
-
-Notes:
-
+- DNS path uses Posh-ACME `New-PACertificate`.
+- `DNSPlugin`, `DNSParams`, and `DNSWaitTime` are mapped to Posh-ACME.
 - `DNSParams` supports hashtable, PSCustomObject, or `key=value;key=value` string values.
-- `AlternateDNSValidationDomain` is mapped to `DnsAlias` for each requested domain.
-- `UseNetScalerDNS` is not separately implemented yet; Posh-ACME DNS plugins are the active DNS path.
+- `AlternateDNSValidationDomain` maps to `DnsAlias`.
 
-### 5. Implement Remaining Legacy Functional Areas - Partly Completed 2026-05-25
+Still missing:
 
-Currently explicit not-implemented or incomplete areas:
+- `UseNetScalerDNS` as a DNS challenge provider path.
+- DNS provider-specific live validation after the user confirms a working provider/API.
 
-- `-CreateUserPermissions`
-- `-CreateApiUser`
-- `-CleanADC` - implemented for HTTP validation objects.
-- `-RemoveTestCertificates` - implemented for `TST-*` and obvious staging issuer certkeys.
-- `-UpdateIIS` - implemented with explicit Windows/WebAdministration/import behavior; requires permissions only when used.
-- `-SendMail` - implemented with legacy SMTP parameters. `Send-MailMessage` warnings are suppressed; failures are logged.
-- `-PostPoSHScriptFilename` - implemented with legacy `Thumbprint`, `PFXfilename`, and `PFXPassword` arguments.
-- `-UpdateGlobalVPNCertBinding` - implemented for global VPN SSL certkey binding replacement/add.
-- `-GlobalVPNCertBindingIncludeCA` - implemented.
-- `-GlobalVPNCertBindingCrlCheck` - implemented.
-- `-GlobalVPNCertBindingOcspCheck` - implemented.
-- `-RemovePrevious` - basic implementation for production when new certkey differs from the old certkey.
-- `-CleanExpiredCertsOnDisk` - implemented per request.
-- `-CleanAllExpiredCertsOnDisk` should be reviewed; basic local cleanup exists but needs parity verification.
-- Partition support via `-Partitions`.
-- HA-awareness via `Invoke-ADCGetHanode` or toolkit equivalent.
-- Support for `UseLbVip` path beyond the current smoke coverage.
+### ACME Provider Support
+
+Implemented:
+
+- Default non-production: `LE_STAGE`.
+- Default production mappings:
+  - `LetsEncrypt` -> `LE_PROD`
+  - `ZeroSSL` -> `ZEROSSL_PROD`
+  - `Google` -> `GOOGLE_PROD`
+  - `SSLCom` -> `SSLCOM_RSA`
+  - `Actalis` -> `ACTALIS_PROD`
+- Non-production Google maps to `GOOGLE_STAGE`.
+- `AcmeDirectoryUrl` overrides the mapping.
+- Advanced Posh-ACME options exposed:
+  - `UseModernPfxEncryption`
+  - `PreferredChain`
+  - `Profile`
+  - `DnsAlias`
+  - `ValidationTimeout`
+  - `LifetimeDays`
+  - `AlwaysNewKey`
+
+Still deferred:
+
+- External CSR/key-file support.
+- Production validation.
+
+### Certificate Deployment
+
+Implemented:
+
+- Upload/replace PFX under `/nsconfig/ssl/`.
+- Add/update NetScaler SSL certkey.
+- Staging certkeys are prefixed with `TST-`.
+- Generated `Invoke-NSChangeSslcertkey` is used for cert/key replacement behavior.
+- Optional uploaded PFX cleanup through `-RemoveUploadedPfx`.
+- Basic `-RemovePrevious` behavior for production when old and new certkey names differ.
+
+Still needs review:
+
+- Chain/link behavior for ADC versions or environments that require CA certkey linking.
+- Whether `TST-` should apply to every non-production provider or only Let's Encrypt staging.
+- Production `-RemovePrevious` behavior needs live-safe validation.
+
+### User/Permission Bootstrap
 
 Implemented in separate public function:
 
 - `New-NSRequestCertificateUser`
-- `Invoke-RequestCertificate -CreateUserPermissions`
-- `Invoke-RequestCertificate -CreateApiUser`
+- Legacy bridge from `Invoke-RequestCertificate -CreateUserPermissions`
+- Legacy bridge from `Invoke-RequestCertificate -CreateApiUser`
 
-Still not implemented:
+Supported:
 
-- Full partition iteration via `-Partitions`
-- `UseNetScalerDNS` as a DNS challenge provider path
+- Creates/updates the three legacy command policies.
+- Optionally creates/updates the system user.
+- Binds policies with priorities `10`, `20`, `30`.
+- Supports `-WhatIf`, `-PassThru`, `-SaveADCConfig`, `-Partitions`, DNS/VPN permission options, and optional binding pruning.
+- Uses generated wrappers where possible and generic Nitro only where legacy hyphenated command-policy names require it.
 
-CleanADC / NetScaler cleanup scope:
+Validated:
 
-- Remove temporary responder policy bindings from `lb_letsencrypt_cert`.
-- Remove temporary responder policies named from `rsp_letsencrypt*`.
-- Remove temporary responder actions named from `rsa_letsencrypt*`.
-- Remove content switching policy bindings from all configured `CsVipName` values.
-- Remove `csp_letsencrypt` content switching policy when it is not used elsewhere.
-- Remove `csa_letsencrypt` content switching action when it is not used elsewhere.
-- Remove `svc_letsencrypt_cert_dummy` binding from `lb_letsencrypt_cert`.
-- Remove `lb_letsencrypt_cert` when it was created by this function and has no remaining required bindings.
-- Remove `svc_letsencrypt_cert_dummy` when it was created by this function.
-- Optionally remove uploaded staging PFX files such as `TST-fullchain.pfx` after successful import or during cleanup.
-- Keep cleanup idempotent and safe: missing objects should be logged at Debug level, not treated as failure.
-- Do not remove user-owned CS VIPs, production certificate keys, or unrelated responder/content-switching objects.
+- `-WhatIf` against `https://10.254.0.10` succeeded without creating objects.
 
-For each area:
+### Other Legacy Functional Areas
 
-- Compare legacy behavior.
-- Identify generated `J81.NSToolkit.Config` function names.
-- Add idempotency for pre-existing NetScaler objects.
-- Add log messages that preserve support value.
-- Add staging/live-safe tests where possible.
+Implemented:
 
-### 6. Improve NetScaler API Usage - Mostly Completed For HTTP Path
+- `-CleanADC`
+- `-RemoveTestCertificates`
+- `-UpdateIIS` with explicit local Windows/WebAdministration behavior
+- `-SendMail`
+- `-PostPoSHScriptFilename`
+- `-UpdateGlobalVPNCertBinding`
+- `-GlobalVPNCertBindingIncludeCA`
+- `-GlobalVPNCertBindingCrlCheck`
+- `-GlobalVPNCertBindingOcspCheck`
+- `-CleanExpiredCertsOnDisk`
+- `-CleanAllExpiredCertsOnDisk` basic local cleanup
 
-The current HTTP implementation now uses generated `J81.NSToolkit.Config` functions for most NetScaler actions.
+Needs validation:
 
-Converted generated calls:
+- `-UpdateIIS` on a real local IIS target.
+- `-UpdateGlobalVPNCertBinding` after the latest changes.
+- `-CleanAllExpiredCertsOnDisk` parity with the original script.
+
+## NetScaler API Usage
+
+Generated `J81.NSToolkit.Config` functions are used for most HTTP path actions:
 
 - `Invoke-NSEnableNsfeature`
 - `Invoke-NSGetHanode`
@@ -307,118 +358,127 @@ Converted generated calls:
 - `Invoke-NSDeleteSystemfile`
 - `Invoke-NSGetSslcertkey`
 - `Invoke-NSAddSslcertkey`
+- `Invoke-NSChangeSslcertkey`
 - `Invoke-NSSaveNsconfig`
 
 Remaining generic Nitro usage:
 
-- `Assert-RequestCertificateNSResource.ps1` keeps fallback generic get/create behavior for resource types that are not explicitly mapped yet.
+- `Assert-RequestCertificateNSResource.ps1` keeps fallback generic get/create behavior.
 - `Invoke-RequestCertificateNitro.ps1` remains as a private fallback and error-normalization helper.
+- Command-policy operations in `New-NSRequestCertificateUser` may use generic Nitro for legacy hyphenated policy names.
 
-Certkey update note:
+Future task:
 
-- `Invoke-NSUpdateSslcertkey` maps to plain `PUT sslcertkey` and exposes monitor settings only.
-- `Invoke-NSChangeSslcertkey` maps to `POST sslcertkey?action=update` and exposes `Cert`, `Key`, `Inform`, `Passplain`, and `Nodomaincheck`; this is the generated function used for certificate/key replacement.
+- Replace generic calls with generated functions only where generated coverage exposes the same Nitro behavior and does not reduce compatibility.
 
-Tasks:
+## Invoke-NSNitroApi Status
 
-- Replace remaining generic calls with generated functions only where generated coverage exposes the same Nitro behavior.
-- Keep generic wrapper for gaps in generated coverage or for better error handling.
-- Add missing generated wrappers if an API exists in Nitro but not in the module.
-- Normalize handling of known Nitro idempotency errors:
-  - `[258] No such resource`
-  - `[344] No Service`
-  - `[538] Action does not exist`
-  - `[528] Action name is already in use`
-  - `[1540] Certificate does not exist`
-  - `[1642] Cannot create output file. File already exists`
-- Add helper tests for error classification.
+Expected improvements from earlier work:
 
-### 7. Certificate Deployment Hardening
+- `POST` and `PUT` allowed.
+- `UseBasicParsing` under Windows PowerShell/Desktop edition.
+- `-Headers`.
+- `X-NITRO-WARNING` and `X-NITRO-ONERROR`.
+- Safer query-string construction.
+- Terminating NITRO error records.
+- Warning emission for NITRO warnings.
+- Response metadata note properties.
+- `-RawResponse`.
 
-Tasks:
+Important current caveat:
 
-- Verify whether `sslcertkey` update vs add behaves correctly across ADC versions.
-- Confirm `inform=PFX`, `passplain`, `cert`, and file path fields across target ADC versions.
-- Decide whether to keep `TST-` certkey prefix for all non-production providers or only Let's Encrypt staging.
-- Add optional cleanup for uploaded PFX files after successful import.
-- Add optional cleanup for previous certkeys when `-RemovePrevious` is used.
-- Add chain/link behavior if ADC requires CA certkey linking.
-- Support update of existing SSL bindings, including global VPN binding, with generated functions.
+- After a toolkit update, verify these changes still exist. An earlier post-update check showed `-RawResponse` and `UseBasicParsing` were missing from the refreshed `Invoke-NSNitroApi` even though the older TODO claimed they were implemented.
 
-### 8. Logging And Supportability - Mostly Completed 2026-05-25
+Verification command:
 
-Tasks:
+```powershell
+rg -n "RawResponse|UseBasicParsing|X-NITRO-WARNING|X-NITRO-ONERROR|RemainingArguments|Invoke-WebRequest|Invoke-RestMethod" 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.Common\Public\Invoke-NSNitroApi.ps1'
+```
 
-- Port useful behavior from legacy `Write-ToLogFile`:
-  - Header block.
-  - PowerShell version and OS details.
-  - module versions.
-  - RunAsAdmin status.
-  - log rotation.
-  - sensitive value masking.
-  - exception detail formatting.
-- Keep concise console behavior with `-NoConsoleOutput`.
-- Add `-Verbose` integration without losing existing log file semantics.
-- Add a support bundle option later if useful.
+## Logging And Supportability
 
 Implemented:
 
-- Log header, OS/PowerShell/module details, elevation diagnostic, log rotation, and sensitive value masking.
-- Console output remains concise and honors `-NoConsoleOutput` for module messages. Third-party warnings are suppressed where they were noisy and already handled by our own logging.
+- Log header.
+- PowerShell, OS, module, Posh-ACME, and elevation diagnostics.
+- Log rotation.
+- Sensitive value masking.
+- Concise console output.
+- `-NoConsoleOutput`.
+- Mail failure/success logging.
 
-Remaining:
+Still open:
 
-- Rich exception detail formatting can still be improved beyond the current message-level logging.
-- `-Verbose` integration can be deepened later.
+- Rich exception detail formatting beyond current message-level logging.
+- Deeper `-Verbose` integration.
+- Optional support bundle export.
 
-### 9. Testing Plan
+Known minor issue:
 
-Static checks:
+- The log header recently reported `J81.NSToolkit version : 2311.2021` while `Get-Command Invoke-RequestCertificate` reported module version `2402.222.2`. This likely comes from nested module version detection and should be corrected so support logs show the root module version clearly.
 
-```powershell
-$env:PSModulePath = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit;' + $env:PSModulePath
-Remove-Module J81.NSToolkit,J81.NSToolkit.Config,Posh-ACME -Force -ErrorAction SilentlyContinue
-Import-Module J81.NSToolkit -Force
-Get-Command Invoke-RequestCertificate
-Test-ModuleManifest 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit\J81.NSToolkit\J81.NSToolkit.psd1'
-```
+## RunAsAdmin Status
 
-Staging HTTP live test:
+The module function does not require `#Requires -RunAsAdministrator`.
 
-```powershell
-$env:PSModulePath = 'C:\Users\JohnBillekens\GitHub\J81.NSToolkit;' + $env:PSModulePath
-Remove-Module J81.NSToolkit,J81.NSToolkit.Config,Posh-ACME -Force -ErrorAction SilentlyContinue
-Import-Module J81.NSToolkit -Force
-Invoke-RequestCertificate -AutoRun -ConfigFile 'C:\Users\JohnBillekens\GitHub\GenLeCertForNS\temp\config_domains_test.json' -ForceCertRenew -NoConsoleOutput
-```
+Current behavior:
 
-Never include `-Production` unless explicitly approved.
+- Normal certificate request, NetScaler upload, and mail do not require elevation.
+- `-UpdateIIS` may require local admin permissions because it writes to the local machine certificate store and IIS bindings.
 
-Regression checks after private helper extraction:
+Open:
 
-- Confirm command still returns `Status = Success`.
-- Confirm temporary responder policies/actions are removed in `finally`.
-- Confirm existing `csa_letsencrypt`, `csp_letsencrypt`, `svc_letsencrypt_cert_dummy`, and `lb_letsencrypt_cert` are handled idempotently.
-- Confirm existing PFX upload is replaced cleanly.
-- Confirm `TST-T-portal.j81.nl` is added/updated as expected.
+- Add targeted elevation checks for `-UpdateIIS` only.
+- Avoid any future broad RunAsAdmin requirement.
 
-### 10. Suggested Implementation Order
+## Open Work
 
-1. Extract private helpers without behavior changes.
-2. Add Pester tests around config normalization, secret conversion, Nitro error classification, and ACME flow decisions.
-3. Replace generic Nitro calls with generated toolkit functions.
-4. Restore detailed logging/header/sensitive masking.
-5. Add Posh-ACME advanced parameters. - Completed for the common exposed options.
-6. Rework renewal behavior to avoid unnecessary new orders. - Still pending.
-7. Re-implement DNS validation. - Implemented through Posh-ACME, provider test pending.
-8. Implement remaining legacy switches one by one. - Partly completed; bootstrap/API user and partition work remain.
-9. Add alias `GenLeCertForNS` when the public behavior is complete enough.
+High priority:
+
+- DNS provider live validation.
+- Verify `Invoke-NSNitroApi` still contains the intended improvements after the toolkit update.
+- Add Pester tests for renewal skip, config encryption, and mail credential normalization.
+- Add Pester tests for HTTP cleanup planning/idempotency where possible without live NetScaler.
+- Review current `README.md` changes and decide whether to keep/update them.
+
+Medium priority:
+
+- Full `-Partitions` iteration.
+- `UseNetScalerDNS` DNS challenge provider path.
+- Broader `UseLbVip` validation.
+- Production-safe validation plan for `-RemovePrevious`.
+- Real-target validation for `-UpdateIIS` and `-UpdateGlobalVPNCertBinding`.
+- `CleanAllExpiredCertsOnDisk` parity review.
+
+Deferred:
+
+- `GenLeCertForNS` alias.
+- External CSR/key-file support.
+- Code signing.
+- Production ACME run.
+- MailKit or another SMTP implementation for implicit TLS on port `465`; current working Gmail path is port `587` with SSL/STARTTLS.
+
+## Suggested Next Implementation Order
+
+1. Verify `Invoke-NSNitroApi` current implementation and re-apply non-breaking improvements if missing.
+2. Add Pester tests around the new private helpers:
+   - `Test-RequestCertificateRenewalRequired`
+   - `ConvertFrom-RequestCertificateLegacySecret`
+   - `ConvertTo-RequestCertificateLegacySecret`
+   - `ConvertTo-RequestCertificateHashtable`
+3. Add tests for AutoRun config update/encryption behavior.
+4. Clean up stale README/TODO references and align module import examples with the nested manifest path.
+5. Validate DNS provider path once the provider/API is confirmed.
+6. Validate `UseLbVip`.
+7. Validate `UpdateGlobalVPNCertBinding`.
+8. Implement partition iteration.
+9. Add alias `GenLeCertForNS` when public behavior is stable.
 10. Re-sign module files.
 
 ## Open Questions
 
-- Should the TODO live in the module repo as well as this source repo?
-- Should `Invoke-RequestCertificate` keep the legacy TSV-ish log format exactly, or is a slightly normalized format acceptable if the same facts are present?
-- Should the default ACME flow use `New-PACertificate` for DNS paths and keep the manual HTTP flow for NetScaler responder integration?
-- Should staging certkeys always be prefixed with `TST-`, even for non-Let's Encrypt ACME providers?
-- Which DNS provider should be used first when DNS validation is resumed?
+- Which DNS provider/API should be used first for live DNS validation?
+- Should staging certkeys always use the `TST-` prefix for every ACME provider?
+- Should the module support implicit TLS SMTP on port `465` through MailKit, or is port `587` sufficient?
+- Should root module examples always import from the explicit `J81.NSToolkit.psd1` path during development?
+- Should `UseNetScalerDNS` be implemented as a Posh-ACME DNS plugin adapter or as a custom internal challenge publisher?

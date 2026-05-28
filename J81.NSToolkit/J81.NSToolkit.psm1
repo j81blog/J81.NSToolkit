@@ -20,6 +20,18 @@ function Import-NSToolkitStatsModule {
 }
 
 Export-ModuleMember -Function @(
+    'Connect-NSHANodes',
+    'Connect-NSNode',
+    'Disconnect-NSNode',
+    'Expand-NSResult',
+    'Get-NSSession',
+    'Invoke-NSCleanCertKeyFiles',
+    'Invoke-NSGetSystemFileDirectories',
+    'Invoke-NSNitroApi',
+    'Invoke-RequestCertificate',
     'Import-NSToolkitConfigModule',
-    'Import-NSToolkitStatsModule'
+    'Import-NSToolkitStatsModule',
+    'New-NSRequestCertificateUser',
+    'Remove-NSSystemFile',
+    'Save-NSLogonParams'
 )

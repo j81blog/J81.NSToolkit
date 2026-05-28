@@ -17,6 +17,10 @@ function Remove-RequestCertificateNetScalerHttpValidationConfig {
     .PARAMETER CsVipName
         Content switching vServers to unbind from.
 
+    .PARAMETER RemoveCertificateFiles
+        Removes uploaded certificate files from /nsconfig/ssl. This is intended
+        for explicit CleanADC cleanup, not normal post-renewal validation cleanup.
+
     .NOTES
         Function  : Remove-RequestCertificateNetScalerHttpValidationConfig
         Author    : John Billekens
@@ -27,7 +31,8 @@ function Remove-RequestCertificateNetScalerHttpValidationConfig {
     param(
         [Parameter(Mandatory)][object]$NSSession,
         [Parameter(Mandatory)][object]$Settings,
-        [string[]]$CsVipName
+        [string[]]$CsVipName,
+        [switch]$RemoveCertificateFiles
     )
 
     function Invoke-RequestCertificateCleanupStep {
@@ -101,10 +106,12 @@ function Remove-RequestCertificateNetScalerHttpValidationConfig {
         Invoke-NSDeleteService -NSSession $NSSession -Name $Settings.SvcName | Out-Null
     } | Out-Null
 
-    foreach ($file in 'TST-fullchain.pfx', 'fullchain.pfx') {
-        Invoke-RequestCertificateCleanupStep "System file '$file'" {
-            Invoke-NSDeleteSystemfile -NSSession $NSSession -Filename $file -Filelocation '/nsconfig/ssl/' | Out-Null
-        } | Out-Null
+    if ($RemoveCertificateFiles) {
+        foreach ($file in 'TST-fullchain.pfx', 'fullchain.pfx') {
+            Invoke-RequestCertificateCleanupStep "System file '$file'" {
+                Invoke-NSDeleteSystemfile -NSSession $NSSession -Filename $file -Filelocation '/nsconfig/ssl/' | Out-Null
+            } | Out-Null
+        }
     }
 
     if ($Settings.SaveADCConfig) { Invoke-NSSaveNsconfig -NSSession $NSSession | Out-Null }
