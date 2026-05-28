@@ -35,76 +35,10 @@ jobs:
         with:
           clean: true
 
-      - name: Validate manifests
-        shell: pwsh
-        run: |
-          $repoModulePath = (Resolve-Path .).Path
-          $env:PSModulePath = "$repoModulePath;$env:PSModulePath"
-          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.psd1 | Out-Null
-          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1 | Out-Null
-          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Config\J81.NSToolkit.Config.psd1 | Out-Null
-          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Stats\J81.NSToolkit.Stats.psd1 | Out-Null
-          Test-ModuleManifest .\J81.NSToolkit\J81.NSToolkit.Bundle\J81.NSToolkit.Bundle.psd1 | Out-Null
-
       - name: Publish to target gallery
         shell: pwsh
         env:
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY }}
           PSTESTGALLERY_API_KEY: ${{ secrets.PSGALLERYTEST }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $repoModulePath = (Resolve-Path .).Path
-          $env:PSModulePath = "$repoModulePath;$env:PSModulePath"
-
-          if ('${{ github.ref }}' -eq 'refs/heads/main') {
-            $repository = 'PSGallery'
-            $apiKey = $env:PSGALLERY_API_KEY
-          } elseif ('${{ github.ref }}' -eq 'refs/heads/dev') {
-            $repository = 'PSTestGallery'
-            $apiKey = $env:PSTESTGALLERY_API_KEY
-          } else {
-            throw "Unsupported branch: ${{ github.ref }}"
-          }
-
-          if ([string]::IsNullOrWhiteSpace($apiKey)) {
-            throw "Missing API key for repository '$repository'."
-          }
-
-          if ($repository -eq 'PSTestGallery' -and -not (Get-PSRepository -Name 'PSTestGallery' -ErrorAction SilentlyContinue)) {
-            Register-PSRepository `
-              -Name 'PSTestGallery' `
-              -SourceLocation 'https://www.poshtestgallery.com/api/v2' `
-              -PublishLocation 'https://www.poshtestgallery.com/api/v2/package/' `
-              -ScriptSourceLocation 'https://www.poshtestgallery.com/api/v2/items/psscript' `
-              -ScriptPublishLocation 'https://www.poshtestgallery.com/api/v2/package/' `
-              -InstallationPolicy Trusted
-          }
-
-          $modules = @(
-            @{ Name = 'J81.NSToolkit.Common'; Path = '.\J81.NSToolkit\J81.NSToolkit.Common'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Common\J81.NSToolkit.Common.psd1' },
-            @{ Name = 'J81.NSToolkit'; Path = '.\J81.NSToolkit'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.psd1' },
-            @{ Name = 'J81.NSToolkit.Config'; Path = '.\J81.NSToolkit\J81.NSToolkit.Config'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Config\J81.NSToolkit.Config.psd1' },
-            @{ Name = 'J81.NSToolkit.Stats'; Path = '.\J81.NSToolkit\J81.NSToolkit.Stats'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Stats\J81.NSToolkit.Stats.psd1' },
-            @{ Name = 'J81.NSToolkit.Bundle'; Path = '.\J81.NSToolkit\J81.NSToolkit.Bundle'; Manifest = '.\J81.NSToolkit\J81.NSToolkit.Bundle\J81.NSToolkit.Bundle.psd1' }
-          )
-
-          foreach ($module in $modules) {
-            $manifest = Test-ModuleManifest $module.Manifest
-            [version]$version = $manifest.Version
-
-            $exists = $false
-            try {
-              $null = Find-Module -Name $module.Name -Repository $repository -RequiredVersion $version -ErrorAction Stop
-              $exists = $true
-            } catch {
-              $exists = $false
-            }
-
-            if ($exists) {
-              Write-Warning "$($module.Name) $version already exists in $repository. Skipping."
-              continue
-            }
-
-            Publish-Module -Path $module.Path -Repository $repository -NuGetApiKey $apiKey -ErrorAction Stop
-            Write-Host "$($module.Name) $version published to $repository."
-          }
+          .\ci\Publish.ps1 -GitRef '${{ github.ref }}'

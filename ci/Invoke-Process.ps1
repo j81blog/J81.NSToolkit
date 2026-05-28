@@ -24,11 +24,16 @@ Function Invoke-Process {
         [System.String] $FilePath,
 
         [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [System.String] $ArgumentList
+        [System.String[]] $ArgumentList,
+
+        [Parameter()]
+        [System.String] $WorkingDirectory
     )
 
     $ErrorActionPreference = 'Stop'
+
+    $stdOutTempFile = $null
+    $stdErrTempFile = $null
 
     try {
         $stdOutTempFile = "$env:TEMP\$((New-Guid).Guid)"
@@ -43,7 +48,12 @@ Function Invoke-Process {
             PassThru               = $true;
             NoNewWindow            = $true;
         }
-        if ($PSCmdlet.ShouldProcess("Process [$($FilePath)]", "Run with args: [$($ArgumentList)]")) {
+        if ($WorkingDirectory) {
+            $startProcessParams.WorkingDirectory = $WorkingDirectory
+        }
+
+        $displayArgs = if ($ArgumentList) { $ArgumentList -join ' ' } else { '' }
+        if ($PSCmdlet.ShouldProcess("Process [$FilePath]", "Run with args: [$displayArgs]")) {
             $cmd = Start-Process @startProcessParams
             $cmdOutput = Get-Content -Path $stdOutTempFile -Raw
             $cmdError = Get-Content -Path $stdErrTempFile -Raw

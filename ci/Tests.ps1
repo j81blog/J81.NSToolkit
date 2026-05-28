@@ -1,7 +1,11 @@
-[OutputType()]
+[CmdletBinding()]
 param ()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 Write-Host ""
-Write-Host "Script............: $($myInvocation.myCommand.name)"
+Write-Host "Script............: $($myInvocation.myCommand.Name)"
 
 # Set variables
 if (Test-Path -Path 'env:GITHUB_WORKSPACE') {
@@ -14,12 +18,11 @@ if (Test-Path -Path 'env:GITHUB_WORKSPACE') {
     $environment = "LOCAL"
 
 }
-$projectRoot = ( Resolve-Path -Path ( Split-Path -Parent -Path $PSScriptRoot ) ).Path
+$projectRoot = (Resolve-Path -Path (Split-Path -Parent -Path $PSScriptRoot)).Path
 $moduleName = Split-Path -Leaf -Path $projectRoot
 $moduleRoot = (Join-Path -Path $projectRoot -ChildPath $moduleName)
 $ModuleManifest = (Join-Path -Path $moduleRoot -ChildPath "$($moduleName).psd1")
 
-Import-Module -Name PowerShellGet -Force
 Write-Host "Environment.......: $environment"
 Write-Host "Project root......: $projectRoot"
 Write-Host "Module root.......: $moduleRoot"
@@ -28,36 +31,36 @@ Write-Host "Module manifest...: $ModuleManifest"
 $ProgressPreference = [System.Management.Automation.ActionPreference]::SilentlyContinue
 $WarningPreference = [System.Management.Automation.ActionPreference]::SilentlyContinue
 
-if (Get-Variable -Name projectRoot -ErrorAction "SilentlyContinue") {
-    # Configure the test environment
-    $testsPath = Join-Path -Path $projectRoot -ChildPath "Tests"
-    Write-Host "Tests path........: $testsPath"
-    $testOutput = Join-Path -Path $projectRoot -ChildPath "TestsResults.xml"
-    Write-Host "Output path.......: $testOutput"
-    $testConfig = New-PesterConfiguration -Hashtable @{
-        Run        = @{
-            Path     = $testsPath
-            PassThru = $True
-        }
-        TestResult = @{
-            Enabled      = $true
-            OutputFormat = "NUnitXml"
-            OutputPath   = $testOutput
-        }
-        Output     = @{
-            Verbosity = "Detailed"
-        }
-    }
-
-    # Invoke Pester tests
-    $res = Invoke-Pester -Configuration $testConfig
-
-    if ($res.FailedCount -gt 0) { Throw "$($res.FailedCount) tests failed." }
-} else {
-    Write-Warning -Message "Required variable does not exist: projectRoot."
+$testsPath = Join-Path -Path $projectRoot -ChildPath 'Tests'
+if (-not (Test-Path -Path $testsPath)) {
+    throw "Tests path not found: $testsPath"
 }
 
-# Line break for readability in AppVeyor console
+$testOutput = Join-Path -Path $projectRoot -ChildPath 'TestsResults.xml'
+Write-Host "Tests path........: $testsPath"
+Write-Host "Output path.......: $testOutput"
+
+$testConfig = New-PesterConfiguration -Hashtable @{
+    Run        = @{
+        Path     = $testsPath
+        PassThru = $true
+    }
+    TestResult = @{
+        Enabled      = $true
+        OutputFormat = 'NUnitXml'
+        OutputPath   = $testOutput
+    }
+    Output     = @{
+        Verbosity = 'Detailed'
+    }
+}
+
+$res = Invoke-Pester -Configuration $testConfig
+if ($res.FailedCount -gt 0) {
+    throw "$($res.FailedCount) tests failed."
+}
+
+# Line break for readability
 Write-Host ""
 
 # SIG # Begin signature block
